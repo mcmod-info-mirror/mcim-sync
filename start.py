@@ -157,10 +157,12 @@ def sync_one_time():
         log.info(
             f"Curseforge expired data totally fetched: {len(curseforge_expired_data)}"
         )
+        total_expired_data["curseforge"] = len(curseforge_expired_data)
     if SYNC_MODRINTH:
         modrinth_expired_data = fetch_expired_modrinth_data()
         log.info(f"Modrinth expired data totally fetched: {len(modrinth_expired_data)}")
-
+        total_expired_data["modrinth"] = len(modrinth_expired_data)
+    
     log.info(f"All expired data fetched {total_expired_data}, start syncing...")
 
     # 允许请求
