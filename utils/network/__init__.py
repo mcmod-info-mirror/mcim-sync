@@ -9,8 +9,8 @@ import uuid
 
 from tenacity import retry, stop_after_attempt, retry_if_not_exception_type
 from typing import Optional, Union
-from exceptions import ApiException, ResponseCodeException
-from config.mcim import MCIMConfig
+from exceptions import ApiException, ResponseCodeException, TooManyRequestsException
+from config import MCIMConfig
 from utils.loger import log
 
 mcim_config = MCIMConfig.load()
@@ -112,14 +112,22 @@ def request_sync(
         )
     if not ignore_status_code:
         if res.status_code != 200:
-            raise ResponseCodeException(
-                status_code=res.status_code,
-                method=method,
-                url=url,
-                data=data if data is None else json,
-                params=params,
-                msg=res.text,
-            )
+            if res.status_code == 429:
+                raise TooManyRequestsException(
+                    method=method,
+                    url=url,
+                    data=data if data is None else json,
+                    params=params,
+                )
+            else:
+                raise ResponseCodeException(
+                    status_code=res.status_code,
+                    method=method,
+                    url=url,
+                    data=data if data is None else json,
+                    params=params,
+                    msg=res.text,
+                )
     return res
 
 
@@ -169,12 +177,20 @@ async def request(
         )
     if not ignore_status_code:
         if res.status_code != 200:
-            raise ResponseCodeException(
-                status_code=res.status_code,
-                method=method,
-                url=url,
-                data=data if data is None else json,
-                params=params,
-                msg=res.text,
-            )
+            if res.status_code == 429:
+                raise TooManyRequestsException(
+                    method=method,
+                    url=url,
+                    data=data if data is None else json,
+                    params=params,
+                )
+            else:
+                raise ResponseCodeException(
+                    status_code=res.status_code,
+                    method=method,
+                    url=url,
+                    data=data if data is None else json,
+                    params=params,
+                    msg=res.text,
+                )
     return res

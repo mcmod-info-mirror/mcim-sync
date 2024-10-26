@@ -2,13 +2,13 @@ from odmantic import AIOEngine, SyncEngine
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 
-from config import MongodbConfig
-from models.database.curseforge import Mod, File, Fingerprint  # , ModFilesSyncInfo
+from config import MCIMConfig
+from models.database.curseforge import Mod, File, Fingerprint
 from models.database.modrinth import Project, Version, File as ModrinthFile
 from models.database.file_cdn import File as CDNFile
 from utils.loger import log
 
-_mongodb_config = MongodbConfig.load()
+_mongodb_config = MCIMConfig.load().mongodb
 
 aio_mongo_engine: AIOEngine = None
 sync_mongo_engine: SyncEngine = None
@@ -70,5 +70,3 @@ async def setup_async_mongodb(engine: AIOEngine) -> None:
 
 aio_mongo_engine: AIOEngine = init_mongodb_aioengine()
 sync_mongo_engine: SyncEngine = init_mongodb_syncengine()
-
-log.success("MongoDB connection established.")

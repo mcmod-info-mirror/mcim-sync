@@ -5,19 +5,18 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
-  mcim_sync:
-    container_name: mcim_sync
-    image: mcim_sync
+  mcim_schedule_sync:
+    container_name: mcim_schedule_sync
+    image: mcim_schedule_sync
     build:
       context: .
-      dockerfile: ./docker/sync
+      dockerfile: ./Dockerfile
     environment:
       TZ: Asia/Shanghai
-      SYNC_MODE: SYNC_INFO
     restart: always
     volumes:
-      - /opt/mcim/config:/config
-      - /opt/mcim/logs:/logs
+      - /opt/mcim_sync/config.json:/config.json
+      - /opt/mcim_sync/logs:/logs
     command: >
       sh -c "python start.py"
     logging: *default-logging

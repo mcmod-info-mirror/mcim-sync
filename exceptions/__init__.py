@@ -1,7 +1,7 @@
 
 from typing import Optional
 
-from config.mcim import MCIMConfig
+from config import MCIMConfig
 
 mcim_config = MCIMConfig.load()
 
@@ -58,3 +58,8 @@ class ResponseCodeException(ApiException):
         return (
             f"[{self.method}] {self.status_code} {self.url} {self.params} {self.data}"
         )
+
+# 429 Too Many Requests
+class TooManyRequestsException(ResponseCodeException):
+    def __init__(self, url: str, params: dict, data: dict, method: str):
+        super().__init__(429, "Too Many Requests", url, params, data, method)

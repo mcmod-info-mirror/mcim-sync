@@ -1,113 +1,220 @@
-"""
-定时刷新过期的数据
-
-1. 从数据库中读取所有的数据，列出所有的 Mod 和 Project
-
-2. 遍历所有的数据，判断是否过期
-
-3. 如果过期，更新数据；如果未过期，跳过
-
-4. 异步更新数据，限制并发数；先进行 Curseforge 再 Modrinth
-
-Tips:
-
-为了避免过多的请求，在检测到 Curseforge 403 时，暂停请求 5 分钟；根据 Modrinth API 的 headers，可以判断是否需要暂停
-"""
-
-from odmantic import query
+# Desc: 启动文件，用于启动定时任务，定时同步 CurseForge 和 Modrinth 的数据
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union, List, Set
+import datetime
+import threading
+import time
 
 from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
 from utils.loger import log
 from config import MCIMConfig
 from models.database.curseforge import Mod
 from models.database.modrinth import Project
-from sync.curseforge import fetch_mutil_mods_info
-from sync.modrinth import fetch_mutil_projects_info
+from sync.curseforge import fetch_mutil_mods_info, sync_mod_all_files
+from sync.modrinth import fetch_mutil_projects_info, sync_project_all_version
+from exceptions import ResponseCodeException
 
-LIMIT_SIZE = 100
+mcim_config = MCIMConfig.load()
+log.info(f"MCIMConfig loaded.")
 
-def fetch_all_expired_data():
-    curseforge_expired_data = fetch_expired_curseforge_data()
-    log.info(f"Curseforge expired data totally fetched: {len(curseforge_expired_data)}")
-    modrinth_expired_data = fetch_expired_modrinth_data()
-    log.info(f"Modrinth expired data totally fetched: {len(modrinth_expired_data)}")
+CURSEFORGE_LIMIT_SIZE: int = mcim_config.curseforge_chunk_size
+MODRINTH_LIMIT_SIZE: int = mcim_config.modrinth_chunk_size
+SYNC_CURSEFORGE: bool = mcim_config.sync_curseforge
+SYNC_MODRINTH: bool = mcim_config.sync_modrinth
+MAX_WORKERS: int = mcim_config.max_workers
 
-    return curseforge_expired_data, modrinth_expired_data
+# 429 全局暂停
+pause_event = threading.Event()
+
+
+# 应该尽量多次提交，少缓存在内存中
+def submit_models(models: List[Union[Mod, Project]]):
+    sync_mongo_engine.save_all(models)
+
 
 def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
-    mod_date = {mod.id: mod.dateModified for mod in mods}
-    info = fetch_mutil_projects_info()["data"]
+    mod_date = {mod.id: {"sync_date": mod.dateModified} for mod in mods}
+    expired_modids: Set[int] = set()
+    info = fetch_mutil_mods_info(modIds=[mod.id for mod in mods])
+    models: List[Mod] = []
     for mod in info:
-        if mod_date.get(mod["id"]) is not None:
-            if mod_date[mod["id"]] == mod["dateModified"]:
-                log.info(f"Mod {mod.id} is not updated, pass!")
-                del mod_date[mod["id"]]
-    return set(mod_date.keys())
+        models.append(Mod(**mod))
+        modid = mod["id"]
+        mod_date[modid]["source_date"] = mod["dateModified"]
+        sync_date = mod_date[modid]["sync_date"]
+        if sync_date == mod["dateModified"]:
+            log.debug(f"Mod {modid} is not updated, pass!")
+        else:
+            expired_modids.add(modid)
+            log.debug(f"Mod {modid} is updated {sync_date} -> {mod['dateModified']}!")
+        if len(models) >= 100:
+            submit_models(models)
+            models.clear()
+    submit_models(models)
+    return expired_modids
+
 
 def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
-    project_date = {project.id: project.updated for project in projects}
-    info = fetch_mutil_projects_info()["data"]
+    project_date = {project.id: {"sync_date": project.updated} for project in projects}
+    info = fetch_mutil_projects_info(project_ids=[project.id for project in projects])
+    expired_project_ids: Set[str] = set()
+    models: List[Project] = []
     for project in info:
-        if project_date.get(project["id"]) is not None:
-            if project_date[project["id"]] == project["dateModified"]:
-                log.info(f"Project {project['id']} is not updated, pass!")
-                del project_date[project["id"]]
-    return set(project_date.keys())
+        models.append(Project(**project))
+        project_id = project["id"]
+        sync_date = project_date[project_id]["sync_date"]
+        project_date[project_id]["source_date"] = project["updated"]
+        if sync_date == project["updated"]:
+            log.debug(f"Project {project_id} is not updated, pass!")
+        else:
+            expired_project_ids.add(project_id)
+            log.debug(
+                f"Project {project_id} is updated {sync_date} -> {project['updated']}!"
+            )
+        if len(models) >= 100:
+            submit_models(models)
+            models.clear()
+    submit_models(models)
+    return expired_project_ids
+
 
 def fetch_expired_curseforge_data() -> List[int]:
-    # Mod collection
-    # 分页拉取
     expired_modids = set()
+    skip = 0
     while True:
-        skip = 0
-        mods_result: List[Mod] = sync_mongo_engine.find(Mod, Mod.found == True, skip=skip, limit=LIMIT_SIZE)
+        mods_result: List[Mod] = list(
+            sync_mongo_engine.find(
+                Mod, Mod.found == True, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
+            )
+        )
+
         if not mods_result:
             break
-        skip += LIMIT_SIZE
+        skip += CURSEFORGE_LIMIT_SIZE
         check_expired_result = check_curseforge_data_updated(mods_result)
         expired_modids.update(check_expired_result)
-        log.info(f'Matched {len(check_expired_result)} expired mods')
+        log.debug(f"Matched {len(check_expired_result)} expired mods")
     return list(expired_modids)
 
+
 def fetch_expired_modrinth_data() -> List[str]:
-    # Project collection
-    # 分页拉取
     expired_project_ids = set()
+    skip = 0
     while True:
-        skip = 0
-        projects_result: List[Project] = sync_mongo_engine.find(Project, Project.found == True, skip=skip, limit=LIMIT_SIZE)
+        projects_result: List[Project] = list(
+            sync_mongo_engine.find(
+                Project, Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
+            )
+        )
         if not projects_result:
             break
-        skip += LIMIT_SIZE
-        check_expired_result = check_curseforge_data_updated(projects_result)
+        skip += MODRINTH_LIMIT_SIZE
+        check_expired_result = check_modrinth_data_updated(projects_result)
         expired_project_ids.update(check_expired_result)
-        log.info(f'Matched {len(check_expired_result)} expired projects')
-
+        log.debug(f"Matched {len(check_expired_result)} expired projects")
     return list(expired_project_ids)
 
-def sync_curseforge_mod(modid: int):
-    pass
 
-def sync_modrinth_project(project_id: str):
-    pass
+def sync_with_pause(sync_function, *args):
+    log.info(f"Syncing data with function: {sync_function}, args: {args}")
+    times = 0
+    while times < 3:
+        # 检查是否需要暂停
+        pause_event.wait()
+        try:
+            sync_function(*args)
+        except ResponseCodeException as e:
+            if e.status_code in [429, 403]:
+                log.warning(
+                    f"Received HTTP {e.status_code}, pausing all curseforge threads for 30 seconds..."
+                )
+                pause_event.clear()
+                time.sleep(30)
+                pause_event.set()
+                log.info("Resuming all threads.")
+        else:
+            break
+    else:
+        log.error(
+            f"Failed to sync data after 3 retries, func: {sync_function}, args: {args}"
+        )
 
-def sync_curseforge_mods(modids: List[int]):
-    pass
 
-def sync_modrinth_projects(project_ids: List[str]):
-    pass
-        
+def sync_one_time():
+    log.info("Start fetching expired data.")
+    total_expired_data = {
+        "curseforge": 0,
+        "modrinth": 0,
+    }
+    # fetch all expired data
+    curseforge_expired_data = []
+    modrinth_expired_data = []
+    if SYNC_CURSEFORGE:
+        curseforge_expired_data = fetch_expired_curseforge_data()
+        log.info(
+            f"Curseforge expired data totally fetched: {len(curseforge_expired_data)}"
+        )
+    if SYNC_MODRINTH:
+        modrinth_expired_data = fetch_expired_modrinth_data()
+        log.info(f"Modrinth expired data totally fetched: {len(modrinth_expired_data)}")
+
+    log.info(f"All expired data fetched {total_expired_data}, start syncing...")
+
+    # 允许请求
+    pause_event.set()
+
+    # start two threadspool to sync curseforge and modrinth
+    with ThreadPoolExecutor(
+        max_workers=MAX_WORKERS, thread_name_prefix="curseforge"
+    ) as curseforge_executor, ThreadPoolExecutor(
+        max_workers=MAX_WORKERS, thread_name_prefix="modrinth"
+    ) as modrinth_executor:
+        curseforge_futures = [
+            curseforge_executor.submit(sync_with_pause, sync_mod_all_files, modid)
+            for modid in curseforge_expired_data
+        ]
+        modrinth_futures = [
+            modrinth_executor.submit(
+                sync_with_pause, sync_project_all_version, project_id
+            )
+            for project_id in modrinth_expired_data
+        ]
+
+        log.info(
+            f"All {len(curseforge_futures) + len(modrinth_futures)} tasks submitted, waiting for completion..."
+        )
+
+        for future in as_completed(curseforge_futures + modrinth_futures):
+            # 不需要返回值
+            pass
+
+    log.info("All expired data synced.")
+
 
 if __name__ == "__main__":
     init_mongodb_syncengine()
     log.info("MongoDB SyncEngine initialized.")
-    mcim_config = MCIMConfig.load()
-    log.info(f"MCIMConfig loaded: {mcim_config}")
 
-    # fetch all expired data
-    curseforge_expired_data, modrinth_expired_data = fetch_all_expired_data()
-    
-    # sync all expired data in chunks
-    # start two threadspool to sync curseforge and modrinth data
-    # limit the concurrency
+    # 创建调度器
+    scheduler = BackgroundScheduler()
+
+    # 添加定时任务，每小时执行一次
+    scheduler.add_job(
+        sync_one_time,
+        IntervalTrigger(seconds=mcim_config.interval),
+        next_run_time=datetime.datetime.now(), # 立即执行一次任务
+    )
+
+    # 启动调度器
+    scheduler.start()
+    log.info("Scheduler started.")
+
+    # 主循环，保持程序运行
+    try:
+        while True:
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()
+        log.info("Scheduler shutdown.")

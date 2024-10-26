@@ -1,4 +1,3 @@
-
 import os
 import sys
 import logging
@@ -20,8 +19,8 @@ if mcim_config.log_to_file:
 
 ENABLED: bool = False
 
-EXCLUDED_KEYWORDS = ["metrics", "httpx"]
-EXCULDED_ENDPOINTS = ["/metrics"]
+EXCLUDED_KEYWORDS = ["httpx"]
+
 
 def filter(record) -> bool:
     """
@@ -34,7 +33,7 @@ def filter(record) -> bool:
         bool: True if the log entry should be included, False otherwise.
     """
     if isinstance(record, logging.LogRecord):
-        return record.args and len(record.args) >= 3 and record.args[2] not in EXCULDED_ENDPOINTS
+        return record.args and len(record.args) >= 3
     return not any(keyword in record["message"] for keyword in EXCLUDED_KEYWORDS)
 
 
@@ -43,7 +42,7 @@ class Logger:
 
     def __init__(self):
         # 文件的命名
-        log_path = os.path.join(LOG_PATH, "fastapi", "{time:YYYY-MM-DD}.log")
+        log_path = os.path.join(LOG_PATH, "{time:YYYY-MM-DD}.log")
         self.logger = logger
         # 清空所有设置
         self.logger.remove()
@@ -89,24 +88,6 @@ class Logger:
     def get_logger(self):
         return self.logger
 
-    def init_config(self):
-        global ENABLED
-        if not ENABLED:
-            LOGGER_NAMES = ("uvicorn.asgi", "uvicorn.access", "uvicorn")
-
-            # change handler for default uvicorn logger
-            logging.getLogger().handlers = [InterceptHandler()]
-            for logger_name in LOGGER_NAMES:
-                logging_logger = logging.getLogger(logger_name)
-                # log level
-                if not mcim_config.debug:
-                    logging_logger.setLevel(logging.INFO)
-                else:
-                    logging_logger.setLevel(logging.DEBUG)
-                logging_logger.handlers = [InterceptHandler()]
-                logging_logger.addFilter(filter)
-            ENABLED = True
-
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover
@@ -127,6 +108,6 @@ class InterceptHandler(logging.Handler):
             record.getMessage(),
         )
 
+
 Loggers = Logger()
-Loggers.init_config()
 log = Loggers.get_logger()

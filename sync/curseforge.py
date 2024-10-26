@@ -1,16 +1,10 @@
 from typing import List, Optional, Union
-import httpx
-import json
-import os
 import time
-from datetime import datetime
-from odmantic import query
 
 from models.database.curseforge import File, Mod, Pagination, Fingerprint
 from models.database.file_cdn import File as FileCDN
 from utils.network import request_sync
 from utils.loger import log
-from exceptions import ResponseCodeException
 from database.mongodb import sync_mongo_engine as mongodb_engine
 from config import MCIMConfig
 
@@ -27,15 +21,7 @@ HEADERS = {
 
 def submit_models(models: List[Union[File, Mod, Fingerprint]]):
     mongodb_engine.save_all(models)
-    log.debug(f"Submited: {len(models)}")
-
-
-# limit decorator
-def limit(func):
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
+    log.debug(f"Submited models: {len(models)}")
 
 
 def check_alive():
@@ -77,40 +63,23 @@ def append_model_from_files_res(
                         url=file_model.downloadUrl,
                         path=file_model.sha1,
                         size=file_model.fileLength,
-                        # mtime=(
-                        #     file_model.fileDate
-                        #     if file_model.fileDate
-                        #     else datetime.now()
-                        # ),
                         mtime=int(time.time()),
                     )
                 )
     return models
 
 
-# verify_expire: False 为待验证，True 为已验证过期
 def sync_mod_all_files(
     modId: int,
     latestFiles: List[dict] = None,
-    need_to_cache: bool = True,
-    verify_expire: Optional[bool] = False,
+    need_to_cache: bool = True,  # 已存在于数据库中的 mod 当然要缓存
 ) -> List[Union[File, Mod]]:
-    if not verify_expire:  # 未确认
-        # 再次检查是否已经过期，以免反复 update
-        mod_model: Optional[Mod] = mongodb_engine.find_one(Mod, Mod.id == modId)
-        if mod_model is not None:
-            if (
-                time.time()
-                <= mod_model.sync_at.timestamp()
-                + mcim_config.expire_second.curseforge.mod
-            ):
-                log.info(f"Mod {modId} is not expired, pass!")
-                return None
     models = []
     if not latestFiles:
-        data = request_sync(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
-        latestFiles = data["latestFiles"]
-        need_to_cache = True if data["classId"] == 6 else False
+        mod_model = mongodb_engine.find_one(Mod, Mod.id == modId)
+        if mod_model is not None:
+            latestFiles = mod_model.latestFiles
+            need_to_cache = True if mod_model.classId == 6 else False
 
     params = {"index": 0, "pageSize": 50}
     res = request_sync(
@@ -119,15 +88,11 @@ def sync_mod_all_files(
         params=params,
     ).json()
 
-    # models.extend(
-    #     append_model_from_files_res(res, latestFiles, need_to_cache=need_to_cache)
-    # )
     models = append_model_from_files_res(res, latestFiles, need_to_cache=need_to_cache)
     submit_models(models=models)
-    log.info(
-        f'Finished modid:{modId} i:ps:t {params["index"]}:{params["pageSize"]}:{res["pagination"]["totalCount"]}'
+    log.debug(
+        f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{res["pagination"]["totalCount"]}'
     )
-    # add_file_cdn_tasks(models=models)
 
     page = Pagination(**res["pagination"])
     # index A zero based index of the first item to include in the response, the limit is: (index + pageSize <= 10,000).
@@ -141,25 +106,11 @@ def sync_mod_all_files(
             res, latestFiles, need_to_cache=need_to_cache
         )
         submit_models(models=models)
-        log.info(
-            f'Finished modid:{modId} i:ps:t {params["index"]}:{params["pageSize"]}:{page.totalCount}'
+        log.debug(
+            f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{res["pagination"]["totalCount"]}'
         )
-
-def sync_multi_mods_all_files(modIds: List[int]):
-    # 去重
-    modIds = list(set(modIds))
-    mod_models: Optional[List[Mod]] = mongodb_engine.find(
-        Mod, query.in_(Mod.id, modIds)
-    )
-    for mod_model in mod_models:
-        if (
-            time.time()
-            <= mod_model.sync_at.timestamp() + mcim_config.expire_second.curseforge.mod
-        ):
-            log.info(f"Mod {mod_model.id} is not expired, pass!")
-            modIds.remove(mod_model.id)
-    for modId in modIds:
-        sync_mod_all_files(modId, verify_expire=True)
+    else:
+        log.info(f"Finished sync mod {modId}, total {page.totalCount} files")
 
 
 def sync_mod(modId: int):
@@ -178,81 +129,6 @@ def sync_mod(modId: int):
     )
     submit_models(models)
 
-def sync_mutil_mods(modIds: List[int]):
-    modIds = list(set(modIds))
-    data = {"modIds": modIds}
-    res = request_sync(
-        method="POST", url=f"{API}/v1/mods", json=data, headers=HEADERS
-    ).json()["data"]
-    models: List[Union[File, Mod]] = []
-    mods = mongodb_engine.find(Mod, query.in_(Mod.id, modIds))
-    mods_dateReleased_index = {mod.id: mod.dateReleased for mod in mods}
-    for mod in res:
-        models.append(Mod(found=True, **mod))
-        if mods_dateReleased_index.get(mod["id"]) is not None:
-            if mods_dateReleased_index[mod["id"]] == mod["dateReleased"]:
-                log.info(f"Mod {mod['id']} is not updated, pass!")
-                modIds.remove(mod["id"])
-            
-    sync_multi_mods_all_files([model.id for model in models])
-    submit_models(models)
-
-def sync_file(modId: int, fileId: int, expire: bool = False):
-    # res = request_sync(f"{API}/v1/mods/{modId}/files/{fileId}", headers=headers).json()[
-    #     "data"
-    # ]
-    # latestFiles = request_sync(f"{API}/v1/mods/{modId}", headers=HEADERS).json()[
-    #     "data"
-    # ]["latestFiles"]
-    # models = [
-    #     File(found=True, **res),
-    #     Fingerprint(
-    #         found=True, id=res["fileFingerprint"], file=res, latestFiles=latestFiles
-    #     ),
-    # ]
-    # 下面会拉取所有文件，不重复添加
-    # models = []
-    # if not expire:
-    # models.extend(sync_mod_all_files(modId, latestFiles=latestFiles))
-    # models.extend()
-    # submit_models(models)
-    sync_mod(modId)
-
-
-def sync_mutil_files(fileIds: List[int]):
-    # models: List[Union[File, Mod]] = []
-    res = request_sync(
-        method="POST",
-        url=f"{API}/v1/mods/files",
-        headers=HEADERS,
-        json={"fileIds": fileIds},
-    ).json()["data"]
-    # for file in res:
-    # models.append(File(found=True, **file))
-    modids = [file["modId"] for file in res]
-    sync_multi_mods_all_files(modids)
-    # submit_models(models)
-
-
-def sync_fingerprints(fingerprints: List[int]):
-    res = request_sync(
-        method="POST",
-        url=f"{API}/v1/fingerprints/432",
-        headers=HEADERS,
-        json={"fingerprints": fingerprints},
-    ).json()
-    # models: List[Fingerprint] = []
-    # for file in res["data"]["exactMatches"]:
-    # models.append(
-    #     Fingerprint(
-    #         id=file["file"]["fileFingerprint"],
-    #         file=file["file"],
-    #         latestFiles=file["latestFiles"],
-    #         found=True,
-    #     )
-    # )
-    modids = [file["file"]["modId"] for file in res["data"]["exactMatches"]]
-    sync_multi_mods_all_files(modids)
 
 def fetch_mutil_mods_info(modIds: List[int]):
     modIds = list(set(modIds))
