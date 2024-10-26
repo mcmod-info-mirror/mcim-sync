@@ -7,4 +7,9 @@ EXPOSE 8000
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
-COPY start.py config.py ./database ./models ./utils ./sync ./exceptions ./
+COPY start.py config.py ./
+COPY ./database ./database
+COPY ./models ./models
+COPY ./utils ./utils
+COPY ./sync ./sync
+COPY ./exceptions ./exceptions
