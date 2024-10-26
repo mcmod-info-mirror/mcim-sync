@@ -20,8 +20,9 @@ HEADERS = {
 
 
 def submit_models(models: List[Union[File, Mod, Fingerprint]]):
-    mongodb_engine.save_all(models)
-    log.debug(f"Submited models: {len(models)}")
+    if len(models) != 0:
+        mongodb_engine.save_all(models)
+        log.debug(f"Submited models: {len(models)}")
 
 
 def check_alive():

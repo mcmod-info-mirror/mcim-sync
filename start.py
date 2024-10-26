@@ -31,7 +31,9 @@ pause_event = threading.Event()
 
 # 应该尽量多次提交，少缓存在内存中
 def submit_models(models: List[Union[Mod, Project]]):
-    sync_mongo_engine.save_all(models)
+    if len(models) != 0:
+        sync_mongo_engine.save_all(models)
+        log.debug(f"Submited models: {len(models)}")
 
 
 def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
@@ -118,7 +120,6 @@ def fetch_expired_modrinth_data() -> List[str]:
 
 
 def sync_with_pause(sync_function, *args):
-    log.info(f"Syncing data with function: {sync_function}, args: {args}")
     times = 0
     while times < 3:
         # 检查是否需要暂停

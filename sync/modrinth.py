@@ -28,8 +28,9 @@ MAX_LENGTH = mcim_config.max_file_size
 
 
 def submit_models(models: List[Union[Project, File, Version]]):
-    log.debug(f"Submited models: {len(models)}")
-    mongodb_engine.save_all(models)
+    if len(models) != 0:
+        log.debug(f"Submited models: {len(models)}")
+        mongodb_engine.save_all(models)
 
 
 def sync_project_all_version(
