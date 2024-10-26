@@ -1,0 +1,8 @@
+{
+    "host": "mongodb",
+    "port": 27017,
+    "auth": false,
+    "user": "root",
+    "password": "example",
+    "database": "mcim_dev"
+}

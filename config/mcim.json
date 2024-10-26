@@ -1,0 +1,29 @@
+{
+    "host": "0.0.0.0",
+    "port": 8000,
+    "debug": true,
+    "curseforge_api_key": "$2a$10$2DOXBr1x82Acn1A6GGw5b.psdLVOo29u5gEahTQSiGYmDOp2QXFSu",
+    "curseforge_api": "https://api.curseforge.com",
+    "modrinth_api": "https://api.modrinth.com/v2",
+    "proxies": "http://172.25.32.1:7899",
+    "expire_second": {
+        "curseforge": {
+            "mod": 86400,
+            "file": 86400
+        },
+        "modrinth": {
+            "project": 86400,
+            "version": 86400
+        }
+    },
+    "file_cdn": true,
+    "open93home_endpoint": "https://files.mcimirror.top/files/mcim",
+    "redis_cache": true,
+    "prometheus": true,
+    "modrinth_download_path": "/opt/mcim/data/modrinth",
+    "curseforge_download_path": "/opt/mcim/data/curseforge",
+    "prometheus_multiproc_dir": "/opt/mcim/prometheus",
+    "expire_status_code": 404,
+    "uncache_status_code": 404,
+    "favicon_url": "https://thirdqq.qlogo.cn/g?b=sdk&k=ABmaVOlfKKPceB5qfiajxqg&s=640"
+}

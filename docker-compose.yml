@@ -1,0 +1,29 @@
+x-logging: &default-logging
+  driver: "local"
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+services:
+  mcim_sync:
+    container_name: mcim_sync
+    image: mcim_sync
+    build:
+      context: .
+      dockerfile: ./docker/sync
+    environment:
+      TZ: Asia/Shanghai
+      SYNC_MODE: SYNC_INFO
+    restart: always
+    volumes:
+      - /opt/mcim/config:/config
+      - /opt/mcim/logs:/logs
+    command: >
+      sh -c "python start.py"
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 200M
