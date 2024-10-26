@@ -13,3 +13,5 @@ Tips:
 为了避免过多的请求，在检测到 Curseforge 403 时，暂停请求 5 分钟；根据 Modrinth API 的 headers，可以判断是否需要暂停
 
 先更新 Mod 的 latestFiles，然后再从数据库中获取对应 Mod 的 latestFiles 给 Fingerprint
+
+当前定时刷新间隔为 7200 s
