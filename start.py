@@ -191,7 +191,9 @@ def sync_one_time():
             # 不需要返回值
             pass
 
-    log.info("All expired data synced.")
+    log.info(
+        f"All expired data sync finished, next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
 
 
 if __name__ == "__main__":
@@ -202,10 +204,11 @@ if __name__ == "__main__":
     scheduler = BackgroundScheduler()
 
     # 添加定时任务，每小时执行一次
-    scheduler.add_job(
+    sync_job = scheduler.add_job(
         sync_one_time,
         IntervalTrigger(seconds=mcim_config.interval),
-        next_run_time=datetime.datetime.now(), # 立即执行一次任务
+        next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+        name="mcim_sync",
     )
 
     # 启动调度器
