@@ -30,6 +30,9 @@ class MCIMConfigModel(BaseModel):
     curseforge_api_key: str = "<api key>"
     curseforge_api: str = "https://api.curseforge.com"  # 不然和api的拼接对不上
     modrinth_api: str = "https://api.modrinth.com/v2"
+    bot_token: str = "<bot token>"
+    chat_id: str = "<chat id>"
+    telegram_proxy: Optional[str] = None
     proxies: Optional[str] = None
 
     file_cdn: bool = False

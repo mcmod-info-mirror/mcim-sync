@@ -3,11 +3,14 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union, List, Set
+import telegram
+import asyncio
 import datetime
 import threading
 import time
 
 from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
+from utils.network import request_sync
 from utils.loger import log
 from config import MCIMConfig
 from models.database.curseforge import Mod
@@ -24,6 +27,11 @@ MODRINTH_LIMIT_SIZE: int = mcim_config.modrinth_chunk_size
 SYNC_CURSEFORGE: bool = mcim_config.sync_curseforge
 SYNC_MODRINTH: bool = mcim_config.sync_modrinth
 MAX_WORKERS: int = mcim_config.max_workers
+
+bot = telegram.Bot(
+    token=mcim_config.bot_token,
+    request=telegram.request.HTTPXRequest(proxy=mcim_config.telegram_proxy),
+)
 
 # 429 全局暂停
 pause_event = threading.Event()
@@ -119,6 +127,81 @@ def fetch_expired_modrinth_data() -> List[str]:
     return list(expired_project_ids)
 
 
+async def notify_result_to_telegram(total_expired_data: dict):
+    sync_message = f"CurseForge: {total_expired_data['curseforge']} 条数据已更新\nModrinth: {total_expired_data['modrinth']} 条数据已更新"
+    await bot.send_message(chat_id=mcim_config.chat_id, text=sync_message)
+    log.info(f"Message '{sync_message}' sent to telegram.")
+    """
+    https://mod.mcimirror.top/statistics
+    {
+        "curseforge": {
+            "mod": 75613,
+            "file": 1265312,
+            "fingerprint": 1264259
+        },
+        "modrinth": {
+            "project": 42832,
+            "version": 415467,
+            "file": 458877
+        },
+        "file_cdn": {
+            "file": 924573
+        }
+    }
+    格式化为消息
+    截至 2024 年 11 月 03 日 01:58:08，MCIM 已缓存：
+    Curseforge 模组 75613 个，文件 1265312 个，指纹 1264259 个
+    Modrinth 项目 42832 个，版本 415467 个，文件 458877 个
+    CDN 文件 924573 个
+    """
+    mcim_stats = request_sync("https://mod.mcimirror.top/statistics").json()
+    mcim_message = (
+        f"MCIM API 数据统计：\n"
+        f"截至 {datetime.datetime.now().strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}，MCIM 已缓存：\n"
+        f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个，指纹 {mcim_stats['curseforge']['fingerprint']} 个\n"
+        f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
+        f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
+    )
+    await bot.send_message(chat_id=mcim_config.chat_id, text=mcim_message)
+    log.info(f"Message '{mcim_message}' sent to telegram.")
+    """
+    https://files.mcimirror.top/api/stats/center
+    {
+    "today": {
+        "hits": 69546,
+        "bytes": 112078832941
+    },
+    "onlines": 7,
+    "sources": 1,
+    "totalFiles": 922998,
+    "totalSize": 1697281799794,
+    "startTime": 1730551551412
+    }
+    格式化为消息
+    当前在线节点：6 个
+    当日全网总请求：67597 次
+    当日全网总流量：100.89 GB
+    同步源数量：1 个
+    总文件数：922998 个
+    总文件大小：1.54 TB
+    主控在线时间：0 天 5 小时 12 分钟 14 秒
+    请求时间：2024 年 11 月 03 日 01:58:05
+    """
+    files_stats = request_sync("https://files.mcimirror.top/api/stats/center").json()
+    files_message = (
+        f"OpenMCIM 数据统计：\n"
+        f"当前在线节点：{files_stats['onlines']} 个\n"
+        f"当日全网总请求：{files_stats['today']['hits']} 次\n"
+        f"当日全网总流量：{files_stats['today']['bytes'] / 1024 / 1024 / 1024:.2f} GB\n"
+        f"同步源数量：{files_stats['sources']} 个\n"
+        f"总文件数：{files_stats['totalFiles']} 个\n"
+        f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024:.2f} TB\n"
+        f"主控在线时间：{files_stats['startTime'] / 1000 / 60 / 60 / 24:.0f} 天 {files_stats['startTime'] / 1000 / 60 / 60 % 24:.0f} 小时 {files_stats['startTime'] / 1000 / 60 % 60:.0f} 分钟 {files_stats['startTime'] / 1000 % 60:.0f} 秒\n"
+    )
+    await bot.send_message(chat_id=mcim_config.chat_id, text=files_message)
+    log.info(f"Message '{files_message}' sent to telegram.")
+
+
 def sync_with_pause(sync_function, *args):
     times = 0
     while times < 3:
@@ -162,7 +245,7 @@ def sync_one_time():
         modrinth_expired_data = fetch_expired_modrinth_data()
         log.info(f"Modrinth expired data totally fetched: {len(modrinth_expired_data)}")
         total_expired_data["modrinth"] = len(modrinth_expired_data)
-    
+
     log.info(f"All expired data fetched {total_expired_data}, start syncing...")
 
     # 允许请求
@@ -196,6 +279,9 @@ def sync_one_time():
     log.info(
         f"All expired data sync finished, total: {total_expired_data}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     )
+
+    asyncio.run(notify_result_to_telegram(total_expired_data))
+    log.info("All Message sent to telegram.")
 
 
 if __name__ == "__main__":
