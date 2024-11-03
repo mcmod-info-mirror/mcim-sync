@@ -1,5 +1,5 @@
 # Desc: 启动文件，用于启动定时任务，定时同步 CurseForge 和 Modrinth 的数据
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union, List, Set
@@ -227,7 +227,7 @@ def sync_with_pause(sync_function, *args):
         )
 
 
-def sync_one_time():
+async def sync_one_time():
     log.info("Start fetching expired data.")
     total_expired_data = {
         "curseforge": 0,
@@ -281,7 +281,7 @@ def sync_one_time():
         f"All expired data sync finished, total: {total_expired_data}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     )
 
-    asyncio.run(notify_result_to_telegram(total_expired_data))
+    await notify_result_to_telegram(total_expired_data)
     log.info("All Message sent to telegram.")
 
 
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     log.info("MongoDB SyncEngine initialized.")
 
     # 创建调度器
-    scheduler = BackgroundScheduler()
+    scheduler = AsyncIOScheduler()
 
     # 添加定时任务，每小时执行一次
     sync_job = scheduler.add_job(
