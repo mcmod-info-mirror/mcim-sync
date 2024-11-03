@@ -285,13 +285,14 @@ async def sync_one_time():
     log.info("All Message sent to telegram.")
 
 
-if __name__ == "__main__":
+async def main():
     init_mongodb_syncengine()
     log.info("MongoDB SyncEngine initialized.")
 
     # 创建调度器
     scheduler = AsyncIOScheduler()
 
+    global sync_job
     # 添加定时任务，每小时执行一次
     sync_job = scheduler.add_job(
         sync_one_time,
@@ -302,12 +303,10 @@ if __name__ == "__main__":
 
     # 启动调度器
     scheduler.start()
-    log.info("Scheduler started.")
+    log.info(f"Scheduler started, Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
-    # 主循环，保持程序运行
-    try:
-        while True:
-            time.sleep(1)
-    except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()
-        log.info("Scheduler shutdown.")
+    await asyncio.Event().wait()
+        
+
+if __name__ == "__main__":
+    asyncio.run(main())
