@@ -128,7 +128,10 @@ def fetch_expired_modrinth_data() -> List[str]:
 
 
 async def notify_result_to_telegram(total_expired_data: dict):
-    sync_message = f"CurseForge: {total_expired_data['curseforge']} 条数据已更新\nModrinth: {total_expired_data['modrinth']} 条数据已更新"
+    sync_message = (
+        f"CurseForge: {total_expired_data['curseforge']} 个 Mod 的数据已更新\n"
+        f"Modrinth: {total_expired_data['modrinth']} 个 Mod 的数据已更新"
+    )
     await bot.send_message(chat_id=mcim_config.chat_id, text=sync_message)
     log.info(f"Message '{sync_message}' sent to telegram.")
     """
@@ -156,8 +159,7 @@ async def notify_result_to_telegram(total_expired_data: dict):
     """
     mcim_stats = request_sync("https://mod.mcimirror.top/statistics").json()
     mcim_message = (
-        f"MCIM API 数据统计：\n"
-        f"截至 {datetime.datetime.now().strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}，MCIM 已缓存：\n"
+        f"截至 {datetime.datetime.now().strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}，MCIM API 已缓存：\n"
         f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个，指纹 {mcim_stats['curseforge']['fingerprint']} 个\n"
         f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
         f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
@@ -195,8 +197,7 @@ async def notify_result_to_telegram(total_expired_data: dict):
         f"当日全网总流量：{files_stats['today']['bytes'] / 1024 / 1024 / 1024:.2f} GB\n"
         f"同步源数量：{files_stats['sources']} 个\n"
         f"总文件数：{files_stats['totalFiles']} 个\n"
-        f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024:.2f} TB\n"
-        f"主控在线时间：{files_stats['startTime'] / 1000 / 60 / 60 / 24:.0f} 天 {files_stats['startTime'] / 1000 / 60 / 60 % 24:.0f} 小时 {files_stats['startTime'] / 1000 / 60 % 60:.0f} 分钟 {files_stats['startTime'] / 1000 % 60:.0f} 秒\n"
+        f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
     )
     await bot.send_message(chat_id=mcim_config.chat_id, text=files_message)
     log.info(f"Message '{files_message}' sent to telegram.")
