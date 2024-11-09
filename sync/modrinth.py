@@ -16,15 +16,15 @@ from models.database.modrinth import Project, File, Version
 from models.database.file_cdn import File as FileCDN
 from utils.network import request_sync
 from exceptions import ResponseCodeException
-from config import MCIMConfig
+from config import Config
 from database.mongodb import sync_mongo_engine as mongodb_engine
 
 from utils.loger import log
 
-mcim_config = MCIMConfig.load()
+config = Config.load()
 
-API = mcim_config.modrinth_api
-MAX_LENGTH = mcim_config.max_file_size
+API = config.modrinth_api
+MAX_LENGTH = config.max_file_size
 
 
 def submit_models(models: List[Union[Project, File, Version]]):

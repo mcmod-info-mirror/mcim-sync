@@ -1,9 +1,9 @@
 
 from typing import Optional
 
-from config import MCIMConfig
+from config import Config
 
-mcim_config = MCIMConfig.load()
+config = Config.load()
 
 
 class UncacheException(Exception):

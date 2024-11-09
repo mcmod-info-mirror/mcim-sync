@@ -6,15 +6,15 @@ from models.database.file_cdn import File as FileCDN
 from utils.network import request_sync
 from utils.loger import log
 from database.mongodb import sync_mongo_engine as mongodb_engine
-from config import MCIMConfig
+from config import Config
 
-mcim_config = MCIMConfig.load()
+config = Config.load()
 
-API = mcim_config.curseforge_api
-MAX_LENGTH = mcim_config.max_file_size
+API = config.curseforge_api
+MAX_LENGTH = config.max_file_size
 MIN_DOWNLOAD_COUNT = 0
 HEADERS = {
-    "x-api-key": mcim_config.curseforge_api_key,
+    "x-api-key": config.curseforge_api_key,
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.54",
 }
 
@@ -50,7 +50,7 @@ def append_model_from_files_res(
             )
         )
         # for file_cdn
-        if mcim_config.file_cdn:
+        if config.file_cdn:
             if (
                 file_model.sha1 is not None
                 and file_model.gameId == 432

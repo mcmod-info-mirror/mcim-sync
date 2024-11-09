@@ -6,15 +6,15 @@ from typing import cast
 from loguru import logger
 import time
 
-from config import MCIMConfig
+from config import Config
 
 if os.getenv("TZ") is not None:
     time.tzset()
 
-mcim_config = MCIMConfig.load()
+config = Config.load()
 
-LOG_PATH = mcim_config.log_path
-if mcim_config.log_to_file:
+LOG_PATH = config.log_path
+if config.log_to_file:
     os.makedirs(LOG_PATH, exist_ok=True)
 
 ENABLED: bool = False
@@ -59,12 +59,12 @@ class Logger:
             #    ":<cyan>{line}</cyan> | "  # 行号
             "<level>{level}</level>: "  # 等级
             "<level>{message}</level>",  # 日志内容
-            level="INFO" if not mcim_config.debug else "DEBUG",
+            level="INFO" if not config.debug else "DEBUG",
             backtrace=False,
             diagnose=False,
             filter=filter,
         )
-        if mcim_config.log_to_file:
+        if config.log_to_file:
             # 日志写入文件
             self.logger.add(
                 log_path,  # 写入目录指定文件
@@ -81,7 +81,7 @@ class Logger:
                 # rotation="5kb",  # 切割，设置文件大小，rotation="12:00"，rotation="1 week"
                 # filter="my_module"  # 过滤模块
                 # compression="zip"   # 文件压缩
-                level="INFO" if not mcim_config.debug else "DEBUG",
+                level="INFO" if not config.debug else "DEBUG",
                 filter=filter,
             )
 

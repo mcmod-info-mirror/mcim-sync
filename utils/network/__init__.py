@@ -10,13 +10,13 @@ import uuid
 from tenacity import retry, stop_after_attempt, retry_if_not_exception_type
 from typing import Optional, Union
 from exceptions import ApiException, ResponseCodeException, TooManyRequestsException
-from config import MCIMConfig
+from config import Config
 from utils.loger import log
 
-mcim_config = MCIMConfig.load()
+config = Config.load()
 
 
-PROXY: Optional[str] = mcim_config.proxies
+PROXY: Optional[str] = config.proxies
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.54",

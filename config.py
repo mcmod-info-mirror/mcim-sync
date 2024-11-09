@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, ValidationError, validator
 from enum import Enum
 
-# MCIM config path
+# config path
 MICM_CONFIG_PATH = os.path.join("config.json")
 
 class MongodbConfigModel(BaseModel):
@@ -15,7 +15,7 @@ class MongodbConfigModel(BaseModel):
     password: str = "password"
     database: str = "database"
 
-class MCIMConfigModel(BaseModel):
+class ConfigModel(BaseModel):
     debug: bool = False
     mongodb: MongodbConfigModel = MongodbConfigModel()
 
@@ -30,6 +30,7 @@ class MCIMConfigModel(BaseModel):
     curseforge_api_key: str = "<api key>"
     curseforge_api: str = "https://api.curseforge.com"  # 不然和api的拼接对不上
     modrinth_api: str = "https://api.modrinth.com/v2"
+    bot_api: str = "<bot api>"
     bot_token: str = "<bot token>"
     chat_id: str = "<chat id>"
     telegram_proxy: Optional[str] = None
@@ -43,17 +44,17 @@ class MCIMConfigModel(BaseModel):
 
 
 
-class MCIMConfig:
+class Config:
     @staticmethod
-    def save(model: MCIMConfigModel = MCIMConfigModel(), target=MICM_CONFIG_PATH):
+    def save(model: ConfigModel = ConfigModel(), target=MICM_CONFIG_PATH):
         with open(target, "w") as fd:
             json.dump(model.model_dump(), fd, indent=4)
 
     @staticmethod
-    def load(target=MICM_CONFIG_PATH) -> MCIMConfigModel:
+    def load(target=MICM_CONFIG_PATH) -> ConfigModel:
         if not os.path.exists(target):
-            MCIMConfig.save(target=target)
-            return MCIMConfigModel()
+            Config.save(target=target)
+            return ConfigModel()
         with open(target, "r") as fd:
             data = json.load(fd)
-        return MCIMConfigModel(**data)
+        return ConfigModel(**data)

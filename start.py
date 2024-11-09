@@ -12,25 +12,26 @@ import time
 from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
 from utils.network import request_sync
 from utils.loger import log
-from config import MCIMConfig
+from config import Config
 from models.database.curseforge import Mod
 from models.database.modrinth import Project
 from sync.curseforge import fetch_mutil_mods_info, sync_mod_all_files
 from sync.modrinth import fetch_mutil_projects_info, sync_project_all_version
 from exceptions import ResponseCodeException
 
-mcim_config = MCIMConfig.load()
+config = Config.load()
 log.info(f"MCIMConfig loaded.")
 
-CURSEFORGE_LIMIT_SIZE: int = mcim_config.curseforge_chunk_size
-MODRINTH_LIMIT_SIZE: int = mcim_config.modrinth_chunk_size
-SYNC_CURSEFORGE: bool = mcim_config.sync_curseforge
-SYNC_MODRINTH: bool = mcim_config.sync_modrinth
-MAX_WORKERS: int = mcim_config.max_workers
+CURSEFORGE_LIMIT_SIZE: int = config.curseforge_chunk_size
+MODRINTH_LIMIT_SIZE: int = config.modrinth_chunk_size
+SYNC_CURSEFORGE: bool = config.sync_curseforge
+SYNC_MODRINTH: bool = config.sync_modrinth
+MAX_WORKERS: int = config.max_workers
 
 bot = telegram.Bot(
-    token=mcim_config.bot_token,
-    request=telegram.request.HTTPXRequest(proxy=mcim_config.telegram_proxy),
+    token=config.bot_token,
+    base_url=config.bot_api,
+    request=telegram.request.HTTPXRequest(proxy=config.telegram_proxy),
 )
 
 # 429 全局暂停
@@ -132,7 +133,7 @@ async def notify_result_to_telegram(total_expired_data: dict):
         f"CurseForge: {total_expired_data['curseforge']} 个 Mod 的数据已更新\n"
         f"Modrinth: {total_expired_data['modrinth']} 个 Mod 的数据已更新"
     )
-    await bot.send_message(chat_id=mcim_config.chat_id, text=sync_message)
+    await bot.send_message(chat_id=config.chat_id, text=sync_message)
     log.info(f"Message '{sync_message}' sent to telegram.")
     """
     https://mod.mcimirror.top/statistics
@@ -164,7 +165,7 @@ async def notify_result_to_telegram(total_expired_data: dict):
         f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
         f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
     )
-    await bot.send_message(chat_id=mcim_config.chat_id, text=mcim_message)
+    await bot.send_message(chat_id=config.chat_id, text=mcim_message)
     log.info(f"Message '{mcim_message}' sent to telegram.")
     """
     https://files.mcimirror.top/api/stats/center
@@ -199,7 +200,7 @@ async def notify_result_to_telegram(total_expired_data: dict):
         f"总文件数：{files_stats['totalFiles']} 个\n"
         f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
     )
-    await bot.send_message(chat_id=mcim_config.chat_id, text=files_message)
+    await bot.send_message(chat_id=config.chat_id, text=files_message)
     log.info(f"Message '{files_message}' sent to telegram.")
 
 
@@ -296,7 +297,7 @@ async def main():
     # 添加定时任务，每小时执行一次
     sync_job = scheduler.add_job(
         sync_one_time,
-        IntervalTrigger(seconds=mcim_config.interval),
+        IntervalTrigger(seconds=config.interval),
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         name="mcim_sync",
     )
