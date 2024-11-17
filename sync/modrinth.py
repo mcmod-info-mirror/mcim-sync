@@ -88,10 +88,8 @@ def sync_project_all_version(
     # delete not found versions
     removed_count = mongodb_engine.remove(
         Version,
-        query.and_(
-            query.not_in(Version.id, latest_version_id_list),
-            Version.project_id == project_id,
-        ),
+        query.not_in(Version.id, latest_version_id_list),
+        Version.project_id == project_id,
     )
     log.info(
         f"Finished sync project {project_id} versions info, total {len(res)} versions, removed {removed_count} versions"

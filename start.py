@@ -386,7 +386,7 @@ async def sync_full():
                 pass
 
         log.info(
-            f"All data sync finished, total: {total_data}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+            f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
         )
 
         await notify_result_to_telegram(total_data, sync_mode=SyncMode.FULL)
