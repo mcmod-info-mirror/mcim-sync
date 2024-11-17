@@ -37,8 +37,8 @@ bot = telegram.Bot(
 )
 
 # 429 全局暂停
-pause_event = threading.Event()
-
+curseforge_pause_event = threading.Event()
+modrinth_pause_event = threading.Event()
 
 class SyncMode(Enum):
     MODIFY_DATE = 1
@@ -225,6 +225,15 @@ async def notify_result_to_telegram(
 
 def sync_with_pause(sync_function, *args):
     times = 0
+    if "curseforge" in threading.current_thread().name:
+        pause_event = curseforge_pause_event
+        thread_type = "CurseForge"
+    elif "modrinth" in threading.current_thread().name:
+        pause_event = modrinth_pause_event
+        thread_type = "Modrinth"
+    else:
+        log.error("Unknown thread name, can't determine pause event.")
+        return
     while times < 3:
         # 检查是否需要暂停
         pause_event.wait()
@@ -233,7 +242,7 @@ def sync_with_pause(sync_function, *args):
         except ResponseCodeException as e:
             if e.status_code in [429, 403]:
                 log.warning(
-                    f"Received HTTP {e.status_code}, pausing all curseforge threads for 30 seconds..."
+                    f"Received HTTP {e.status_code}, pausing all {thread_type} threads for 30 seconds..."
                 )
                 pause_event.clear()
                 time.sleep(30)
@@ -270,7 +279,8 @@ async def sync_with_modify_date():
     log.info(f"All expired data fetched {total_expired_data}, start syncing...")
 
     # 允许请求
-    pause_event.set()
+    curseforge_pause_event.set()
+    modrinth_pause_event.set()
 
     # start two threadspool to sync curseforge and modrinth
     with ThreadPoolExecutor(
@@ -358,7 +368,8 @@ async def sync_full():
             total_data["modrinth"] = len(modrinth_data)
 
         # 允许请求
-        pause_event.set()
+        curseforge_pause_event.set()
+        modrinth_pause_event.set()
 
         # start two threadspool to sync curseforge and modrinth
         with ThreadPoolExecutor(
