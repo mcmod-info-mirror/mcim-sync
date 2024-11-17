@@ -20,6 +20,7 @@ class ConfigModel(BaseModel):
     mongodb: MongodbConfigModel = MongodbConfigModel()
 
     interval: int = 60 * 60 * 2 # 2 hours
+    interval_full: int = 60 * 60 * 72 # 72 hours
     max_workers: int = 8
     sync_curseforge: bool = True
     sync_modrinth: bool = True

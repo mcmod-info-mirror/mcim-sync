@@ -3,6 +3,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union, List, Set
+from enum import Enum
 import telegram
 import asyncio
 import datetime
@@ -39,6 +40,11 @@ bot = telegram.Bot(
 pause_event = threading.Event()
 
 
+class SyncMode(Enum):
+    MODIFY_DATE = 1
+    FULL = 2
+
+
 # 应该尽量多次提交，少缓存在内存中
 def submit_models(models: List[Union[Mod, Project]]):
     if len(models) != 0:
@@ -69,7 +75,10 @@ def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
 
 
 def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
-    project_info = {project.id: {"sync_date": project.updated, "versions": project.versions} for project in projects}
+    project_info = {
+        project.id: {"sync_date": project.updated, "versions": project.versions}
+        for project in projects
+    }
     info = fetch_mutil_projects_info(project_ids=[project.id for project in projects])
     expired_project_ids: Set[str] = set()
     models: List[Project] = []
@@ -80,7 +89,9 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
         project_info[project_id]["source_date"] = project["updated"]
         if sync_date == project["updated"]:
             if project_info[project_id]["versions"] != project["versions"]:
-                log.debug(f"Project {project_id} version count is not completely equal, some version were deleted, sync it!")
+                log.debug(
+                    f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
+                )
                 expired_project_ids.add(project_id)
             else:
                 log.debug(f"Project {project_id} is not updated, pass!")
@@ -133,10 +144,13 @@ def fetch_expired_modrinth_data() -> List[str]:
     return list(expired_project_ids)
 
 
-async def notify_result_to_telegram(total_expired_data: dict):
+async def notify_result_to_telegram(
+    total_refreshed_data: dict, sync_mode: SyncMode = SyncMode.MODIFY_DATE
+):
     sync_message = (
-        f"CurseForge: {total_expired_data['curseforge']} 个 Mod 的数据已更新\n"
-        f"Modrinth: {total_expired_data['modrinth']} 个 Mod 的数据已更新"
+        f"本次同步为{'增量' if sync_mode == SyncMode.MODIFY_DATE else '全量'}同步\n"
+        f"CurseForge: {total_refreshed_data['curseforge']} 个 Mod 的数据已更新\n"
+        f"Modrinth: {total_refreshed_data['modrinth']} 个 Mod 的数据已更新"
     )
     await bot.send_message(chat_id=config.chat_id, text=sync_message)
     log.info(f"Message '{sync_message}' sent to telegram.")
@@ -233,7 +247,7 @@ def sync_with_pause(sync_function, *args):
         )
 
 
-async def sync_one_time():
+async def sync_with_modify_date():
     log.info("Start fetching expired data.")
     total_expired_data = {
         "curseforge": 0,
@@ -287,8 +301,101 @@ async def sync_one_time():
         f"All expired data sync finished, total: {total_expired_data}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     )
 
-    # await notify_result_to_telegram(total_expired_data)
+    await notify_result_to_telegram(total_expired_data, sync_mode=SyncMode.MODIFY_DATE)
     log.info("All Message sent to telegram.")
+
+
+def fetch_all_curseforge_data() -> List[int]:
+    skip = 0
+    result = []
+    while True:
+        mods_result: List[Mod] = list(
+            sync_mongo_engine.find(
+                Mod, Mod.found == True, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
+            )
+        )
+
+        if not mods_result:
+            break
+        skip += CURSEFORGE_LIMIT_SIZE
+        result.extend([mod.id for mod in mods_result])
+    return result
+
+
+def fetch_all_modrinth_data() -> List[str]:
+    skip = 0
+    result = []
+    while True:
+        projects_result: List[Project] = list(
+            sync_mongo_engine.find(
+                Project, Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
+            )
+        )
+        if not projects_result:
+            break
+        skip += MODRINTH_LIMIT_SIZE
+        result.extend([project.id for project in projects_result])
+    return result
+
+
+async def sync_full():
+    sync_job.pause()
+    log.info("Start full sync, stop dateime_based sync.")
+    try:
+        log.info("Start fetching all data.")
+        total_data = {
+            "curseforge": 0,
+            "modrinth": 0,
+        }
+        # fetch all data
+        if SYNC_CURSEFORGE:
+            curseforge_data = fetch_all_curseforge_data()
+            log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
+            total_data["curseforge"] = len(curseforge_data)
+        if SYNC_MODRINTH:
+            modrinth_data = fetch_all_modrinth_data()
+            log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
+            total_data["modrinth"] = len(modrinth_data)
+
+        # 允许请求
+        pause_event.set()
+
+        # start two threadspool to sync curseforge and modrinth
+        with ThreadPoolExecutor(
+            max_workers=MAX_WORKERS, thread_name_prefix="curseforge"
+        ) as curseforge_executor, ThreadPoolExecutor(
+            max_workers=MAX_WORKERS, thread_name_prefix="modrinth"
+        ) as modrinth_executor:
+            curseforge_futures = [
+                curseforge_executor.submit(sync_with_pause, sync_mod_all_files, modid)
+                for modid in curseforge_data
+            ]
+            modrinth_futures = [
+                modrinth_executor.submit(
+                    sync_with_pause, sync_project_all_version, project_id
+                )
+                for project_id in modrinth_data
+            ]
+
+            log.info(
+                f"All {len(curseforge_futures) + len(modrinth_futures)} tasks submitted, waiting for completion..."
+            )
+
+            for future in as_completed(curseforge_futures + modrinth_futures):
+                # 不需要返回值
+                pass
+
+        log.info(
+            f"All data sync finished, total: {total_data}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+        )
+
+        await notify_result_to_telegram(total_data, sync_mode=SyncMode.FULL)
+        log.info("All Message sent to telegram.")
+    except Exception as e:
+        log.error(f"Full sync failed: {e}")
+    finally:
+        sync_job.resume()
+        log.info("Full sync finished, resume dateime_based sync.")
 
 
 async def main():
@@ -298,21 +405,30 @@ async def main():
     # 创建调度器
     scheduler = AsyncIOScheduler()
 
-    global sync_job
+    global sync_job, sync_full_job
     # 添加定时任务，每小时执行一次
     sync_job = scheduler.add_job(
-        sync_one_time,
+        sync_with_modify_date,
         IntervalTrigger(seconds=config.interval),
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         name="mcim_sync",
     )
 
+    sync_full_job = scheduler.add_job(
+        sync_full,
+        IntervalTrigger(seconds=config.interval_full),
+        name="mcim_sync_full",
+    )
+    
+
     # 启动调度器
     scheduler.start()
-    log.info(f"Scheduler started, Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    log.info(
+        f"Scheduler started, Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
 
     await asyncio.Event().wait()
-        
+
 
 if __name__ == "__main__":
     asyncio.run(main())
