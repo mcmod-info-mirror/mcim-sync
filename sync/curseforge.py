@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+from odmantic import query
 import time
 
 from models.database.curseforge import File, Mod, Pagination, Fingerprint
@@ -89,7 +90,10 @@ def sync_mod_all_files(
         params=params,
     ).json()
 
+    file_id_list = []
+
     models = append_model_from_files_res(res, latestFiles, need_to_cache=need_to_cache)
+    file_id_list.extend([file["id"] for file in res["data"]])
     submit_models(models=models)
     log.debug(
         f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{res["pagination"]["totalCount"]}'
@@ -106,12 +110,16 @@ def sync_mod_all_files(
         models = append_model_from_files_res(
             res, latestFiles, need_to_cache=need_to_cache
         )
+        file_id_list.extend([file["id"] for file in res["data"]])
         submit_models(models=models)
         log.debug(
             f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{res["pagination"]["totalCount"]}'
         )
     else:
-        log.info(f"Finished sync mod {modId}, total {page.totalCount} files")
+        removed_count = mongodb_engine.remove(
+            File, File.modId == modId, query.not_in(File.id, file_id_list)
+        )
+        log.info(f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files")
 
 
 def sync_mod(modId: int):

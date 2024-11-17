@@ -9,6 +9,7 @@ sync_project 只刷新 project 信息，不刷新 project 下的 version 信息
 """
 
 from typing import List, Optional, Union
+from odmantic import query
 import json
 import time
 
@@ -56,7 +57,9 @@ def sync_project_all_version(
         if e.status_code == 404:
             models.append(Project(found=False, id=project_id, slug=project_id))
             return
+    latest_version_id_list = []
     for version in res:
+        latest_version_id_list.append(version["id"])
         for file in version["files"]:
             file["version_id"] = version["id"]
             file["project_id"] = version["project_id"]
@@ -82,7 +85,17 @@ def sync_project_all_version(
                 models = []
         models.append(Version(found=True, slug=slug, **version))
     submit_models(models)
-    log.info(f'Finished sync project {project_id} versions info, total {len(res)} versions')
+    # delete not found versions
+    removed_count = mongodb_engine.remove(
+        Version,
+        query.and_(
+            query.not_in(Version.id, latest_version_id_list),
+            Version.project_id == project_id,
+        ),
+    )
+    log.info(
+        f"Finished sync project {project_id} versions info, total {len(res)} versions, removed {removed_count} versions"
+    )
 
 
 def sync_project(project_id: str):

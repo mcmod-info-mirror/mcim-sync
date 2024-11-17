@@ -10,6 +10,7 @@ import threading
 import time
 
 from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
+from models.database.modrinth import Version
 from utils.network import request_sync
 from utils.loger import log
 from config import Config
@@ -68,17 +69,21 @@ def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
 
 
 def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
-    project_date = {project.id: {"sync_date": project.updated} for project in projects}
+    project_info = {project.id: {"sync_date": project.updated, "versions": project.versions} for project in projects}
     info = fetch_mutil_projects_info(project_ids=[project.id for project in projects])
     expired_project_ids: Set[str] = set()
     models: List[Project] = []
     for project in info:
         models.append(Project(**project))
         project_id = project["id"]
-        sync_date = project_date[project_id]["sync_date"]
-        project_date[project_id]["source_date"] = project["updated"]
+        sync_date = project_info[project_id]["sync_date"]
+        project_info[project_id]["source_date"] = project["updated"]
         if sync_date == project["updated"]:
-            log.debug(f"Project {project_id} is not updated, pass!")
+            if project_info[project_id]["versions"] != project["versions"]:
+                log.debug(f"Project {project_id} version count is not completely equal, some version were deleted, sync it!")
+                expired_project_ids.add(project_id)
+            else:
+                log.debug(f"Project {project_id} is not updated, pass!")
         else:
             expired_project_ids.add(project_id)
             log.debug(
@@ -282,7 +287,7 @@ async def sync_one_time():
         f"All expired data sync finished, total: {total_expired_data}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     )
 
-    await notify_result_to_telegram(total_expired_data)
+    # await notify_result_to_telegram(total_expired_data)
     log.info("All Message sent to telegram.")
 
 
