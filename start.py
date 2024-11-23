@@ -347,6 +347,71 @@ def fetch_all_modrinth_data() -> List[str]:
         result.extend([project.id for project in projects_result])
     return result
 
+async def sync_modrinth_full():
+    log.info("Start fetching all data.")
+    total_data = {
+        "modrinth": 0,
+    }
+
+    if SYNC_MODRINTH:
+        modrinth_data = fetch_all_modrinth_data()
+        log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
+        total_data["modrinth"] = len(modrinth_data)
+
+    # 允许请求
+    modrinth_pause_event.set()
+
+    with ThreadPoolExecutor(
+        max_workers=MAX_WORKERS, thread_name_prefix="modrinth"
+    ) as modrinth_executor:
+        modrinth_futures = [
+            modrinth_executor.submit(
+                sync_with_pause, sync_project_all_version, project_id
+            )
+            for project_id in modrinth_data
+        ]
+
+        log.info("All tasks submitted, waiting for completion...")
+
+        for future in as_completed(modrinth_futures):
+            # 不需要返回值
+            pass
+
+    log.info(
+        f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
+
+async def sync_curseforge_full():
+    log.info("Start fetching all data.")
+    total_data = {
+        "curseforge": 0,
+    }
+
+    if SYNC_CURSEFORGE:
+        curseforge_data = fetch_all_curseforge_data()
+        log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
+        total_data["curseforge"] = len(curseforge_data)
+
+    # 允许请求
+    curseforge_pause_event.set()
+
+    with ThreadPoolExecutor(
+        max_workers=MAX_WORKERS, thread_name_prefix="curseforge"
+    ) as curseforge_executor:
+        curseforge_futures = [
+            curseforge_executor.submit(sync_with_pause, sync_mod_all_files, modid)
+            for modid in curseforge_data
+        ]
+
+        log.info("All tasks submitted, waiting for completion...")
+
+        for future in as_completed(curseforge_futures):
+            # 不需要返回值
+            pass
+
+    log.info(
+        f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
 
 async def sync_full():
     sync_job.pause()
