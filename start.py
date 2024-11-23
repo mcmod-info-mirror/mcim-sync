@@ -19,7 +19,7 @@ from models.database.curseforge import Mod
 from models.database.modrinth import Project
 from sync.curseforge import fetch_mutil_mods_info, sync_mod_all_files
 from sync.modrinth import fetch_mutil_projects_info, sync_project_all_version
-from exceptions import ResponseCodeException
+from exceptions import ResponseCodeException, TooManyRequestsException
 
 config = Config.load()
 log.info(f"MCIMConfig loaded.")
@@ -39,6 +39,7 @@ bot = telegram.Bot(
 # 429 全局暂停
 curseforge_pause_event = threading.Event()
 modrinth_pause_event = threading.Event()
+
 
 class SyncMode(Enum):
     MODIFY_DATE = 1
@@ -239,7 +240,7 @@ def sync_with_pause(sync_function, *args):
         pause_event.wait()
         try:
             sync_function(*args)
-        except ResponseCodeException as e:
+        except (ResponseCodeException, TooManyRequestsException) as e:
             if e.status_code in [429, 403]:
                 log.warning(
                     f"Received HTTP {e.status_code}, pausing all {thread_type} threads for 30 seconds..."
@@ -347,6 +348,35 @@ def fetch_all_modrinth_data() -> List[str]:
         result.extend([project.id for project in projects_result])
     return result
 
+
+def fetch_modrinth_data_by_sync_at():
+    skip = 0
+    result = []
+    while True:
+        query = {
+            "$expr": {
+                "$lt": [
+                    {"$dateFromString": {"dateString": "$sync_at"}},
+                    datetime.datetime.now() - datetime.timedelta(days=1),
+                ]
+            }
+        }
+        projects_result: List[Project] = list(
+            sync_mongo_engine.find(
+                Project,
+                # Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
+                query,
+                skip=skip,
+                limit=MODRINTH_LIMIT_SIZE,
+            )
+        )
+        if not projects_result:
+            break
+        skip += MODRINTH_LIMIT_SIZE
+        result.extend([project.id for project in projects_result])
+    return result
+
+
 async def sync_modrinth_full():
     log.info("Start fetching all data.")
     total_data = {
@@ -413,65 +443,101 @@ async def sync_curseforge_full():
         f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     )
 
-async def sync_full():
-    sync_job.pause()
-    log.info("Start full sync, stop dateime_based sync.")
-    try:
-        log.info("Start fetching all data.")
-        total_data = {
-            "curseforge": 0,
-            "modrinth": 0,
-        }
-        # fetch all data
-        if SYNC_CURSEFORGE:
-            curseforge_data = fetch_all_curseforge_data()
-            log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
-            total_data["curseforge"] = len(curseforge_data)
-        if SYNC_MODRINTH:
-            modrinth_data = fetch_all_modrinth_data()
-            log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
-            total_data["modrinth"] = len(modrinth_data)
 
-        # 允许请求
-        curseforge_pause_event.set()
-        modrinth_pause_event.set()
+async def sync_modrinth_by_sync_at():
+    log.info("Start fetching all data.")
+    total_data = {
+        "modrinth": 0,
+    }
 
-        # start two threadspool to sync curseforge and modrinth
-        with ThreadPoolExecutor(
-            max_workers=MAX_WORKERS, thread_name_prefix="curseforge"
-        ) as curseforge_executor, ThreadPoolExecutor(
-            max_workers=MAX_WORKERS, thread_name_prefix="modrinth"
-        ) as modrinth_executor:
-            curseforge_futures = [
-                curseforge_executor.submit(sync_with_pause, sync_mod_all_files, modid)
-                for modid in curseforge_data
-            ]
-            modrinth_futures = [
-                modrinth_executor.submit(
-                    sync_with_pause, sync_project_all_version, project_id
-                )
-                for project_id in modrinth_data
-            ]
+    if SYNC_MODRINTH:
+        modrinth_data = fetch_all_modrinth_data()
+        log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
+        total_data["modrinth"] = len(modrinth_data)
 
-            log.info(
-                f"All {len(curseforge_futures) + len(modrinth_futures)} tasks submitted, waiting for completion..."
+    # 允许请求
+    modrinth_pause_event.set()
+
+    with ThreadPoolExecutor(
+        max_workers=MAX_WORKERS, thread_name_prefix="modrinth"
+    ) as modrinth_executor:
+        modrinth_futures = [
+            modrinth_executor.submit(
+                sync_with_pause, sync_project_all_version, project_id
             )
+            for project_id in modrinth_data
+        ]
 
-            for future in as_completed(curseforge_futures + modrinth_futures):
-                # 不需要返回值
-                pass
+        log.info("All tasks submitted, waiting for completion...")
 
-        log.info(
-            f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-        )
+        for future in as_completed(modrinth_futures):
+            # 不需要返回值
+            pass
 
-        await notify_result_to_telegram(total_data, sync_mode=SyncMode.FULL)
-        log.info("All Message sent to telegram.")
-    except Exception as e:
-        log.error(f"Full sync failed: {e}")
-    finally:
-        sync_job.resume()
-        log.info("Full sync finished, resume dateime_based sync.")
+    log.info(
+        f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
+
+
+# async def sync_full():
+#     sync_job.pause()
+#     log.info("Start full sync, stop dateime_based sync.")
+#     try:
+#         log.info("Start fetching all data.")
+#         total_data = {
+#             "curseforge": 0,
+#             "modrinth": 0,
+#         }
+#         # fetch all data
+#         if SYNC_CURSEFORGE:
+#             curseforge_data = fetch_all_curseforge_data()
+#             log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
+#             total_data["curseforge"] = len(curseforge_data)
+#         if SYNC_MODRINTH:
+#             modrinth_data = fetch_all_modrinth_data()
+#             log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
+#             total_data["modrinth"] = len(modrinth_data)
+
+#         # 允许请求
+#         curseforge_pause_event.set()
+#         modrinth_pause_event.set()
+
+#         # start two threadspool to sync curseforge and modrinth
+#         with ThreadPoolExecutor(
+#             max_workers=MAX_WORKERS, thread_name_prefix="curseforge"
+#         ) as curseforge_executor, ThreadPoolExecutor(
+#             max_workers=MAX_WORKERS, thread_name_prefix="modrinth"
+#         ) as modrinth_executor:
+#             curseforge_futures = [
+#                 curseforge_executor.submit(sync_with_pause, sync_mod_all_files, modid)
+#                 for modid in curseforge_data
+#             ]
+#             modrinth_futures = [
+#                 modrinth_executor.submit(
+#                     sync_with_pause, sync_project_all_version, project_id
+#                 )
+#                 for project_id in modrinth_data
+#             ]
+
+#             log.info(
+#                 f"All {len(curseforge_futures) + len(modrinth_futures)} tasks submitted, waiting for completion..."
+#             )
+
+#             for future in as_completed(curseforge_futures + modrinth_futures):
+#                 # 不需要返回值
+#                 pass
+
+#         log.info(
+#             f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+#         )
+
+#         await notify_result_to_telegram(total_data, sync_mode=SyncMode.FULL)
+#         log.info("All Message sent to telegram.")
+#     except Exception as e:
+#         log.error(f"Full sync failed: {e}")
+#     finally:
+#         sync_job.resume()
+#         log.info("Full sync finished, resume dateime_based sync.")
 
 
 async def main():
@@ -489,13 +555,6 @@ async def main():
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         name="mcim_sync",
     )
-
-    sync_full_job = scheduler.add_job(
-        sync_full,
-        IntervalTrigger(seconds=config.interval_full),
-        name="mcim_sync_full",
-    )
-    
 
     # 启动调度器
     scheduler.start()
