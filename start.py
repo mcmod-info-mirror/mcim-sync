@@ -238,7 +238,7 @@ def sync_with_pause(sync_function, *args):
         pause_event = modrinth_pause_event
         thread_type = "Modrinth"
     else:
-        log.error("Unknown thread name, can't determine pause event.")
+        log.error(f"Unknown thread name {threading.current_thread().name}, can't determine pause event.")
         return
     while times < 3:
         # 检查是否需要暂停
@@ -555,8 +555,7 @@ async def main():
     global sync_job, sync_full_job
     # 添加定时任务，每小时执行一次
     sync_job = scheduler.add_job(
-        sync_with_pause, 
-        args=(sync_with_modify_date),
+        sync_with_modify_date,
         trigger=IntervalTrigger(seconds=config.interval),
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         name="mcim_sync",
