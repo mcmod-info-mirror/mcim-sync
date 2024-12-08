@@ -30,11 +30,15 @@ SYNC_CURSEFORGE: bool = config.sync_curseforge
 SYNC_MODRINTH: bool = config.sync_modrinth
 MAX_WORKERS: int = config.max_workers
 
-bot = telegram.Bot(
-    token=config.bot_token,
-    base_url=config.bot_api,
-    request=telegram.request.HTTPXRequest(proxy=config.telegram_proxy),
-)
+bot: telegram.Bot
+
+def init_bot():
+    global bot
+    bot = telegram.Bot(
+        token=config.bot_token,
+        base_url=config.bot_api,
+        request=telegram.request.HTTPXRequest(proxy=config.telegram_proxy),
+    )
 
 # 429 全局暂停
 curseforge_pause_event = threading.Event()
@@ -148,6 +152,7 @@ def fetch_expired_modrinth_data() -> List[str]:
 async def notify_result_to_telegram(
     total_refreshed_data: dict, sync_mode: SyncMode = SyncMode.MODIFY_DATE
 ):
+    init_bot()
     sync_message = (
         f"本次同步为{'增量' if sync_mode == SyncMode.MODIFY_DATE else '全量'}同步\n"
         f"CurseForge: {total_refreshed_data['curseforge']} 个 Mod 的数据已更新\n"
@@ -451,7 +456,7 @@ async def sync_modrinth_by_sync_at():
     }
 
     if SYNC_MODRINTH:
-        modrinth_data = fetch_all_modrinth_data()
+        modrinth_data = fetch_modrinth_data_by_sync_at()
         log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
         total_data["modrinth"] = len(modrinth_data)
 
@@ -550,8 +555,9 @@ async def main():
     global sync_job, sync_full_job
     # 添加定时任务，每小时执行一次
     sync_job = scheduler.add_job(
-        sync_with_modify_date,
-        IntervalTrigger(seconds=config.interval),
+        sync_with_pause, 
+        args=(sync_with_modify_date),
+        trigger=IntervalTrigger(seconds=config.interval),
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         name="mcim_sync",
     )
