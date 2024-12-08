@@ -9,6 +9,7 @@ import asyncio
 import datetime
 import threading
 import time
+import tenacity
 
 from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
 from models.database.modrinth import Version
@@ -20,6 +21,7 @@ from models.database.modrinth import Project
 from sync.curseforge import fetch_mutil_mods_info, sync_mod_all_files
 from sync.modrinth import fetch_mutil_projects_info, sync_project_all_version
 from exceptions import ResponseCodeException, TooManyRequestsException
+from telegram.error import TelegramError
 
 config = Config.load()
 log.info(f"MCIMConfig loaded.")
@@ -37,8 +39,9 @@ def init_bot():
     bot = telegram.Bot(
         token=config.bot_token,
         base_url=config.bot_api,
-        request=telegram.request.HTTPXRequest(proxy=config.telegram_proxy),
+        request=telegram.request.HTTPXRequest(proxy=config.telegram_proxy, connection_pool_size=64),
     )
+    return bot
 
 # 429 全局暂停
 curseforge_pause_event = threading.Event()
@@ -148,18 +151,25 @@ def fetch_expired_modrinth_data() -> List[str]:
         log.debug(f"Matched {len(check_expired_result)} expired projects")
     return list(expired_project_ids)
 
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type(TelegramError),
+    sleep=tenacity.wait_fixed(1),
+    stop=tenacity.stop_after_attempt(10),
+)
+async def send_message(text: str):
+    bot = init_bot()
+    await bot.send_message(chat_id=config.chat_id, text=text)
+    log.info(f"Message '{text}' sent to telegram.")
 
 async def notify_result_to_telegram(
     total_refreshed_data: dict, sync_mode: SyncMode = SyncMode.MODIFY_DATE
 ):
-    init_bot()
     sync_message = (
         f"本次同步为{'增量' if sync_mode == SyncMode.MODIFY_DATE else '全量'}同步\n"
         f"CurseForge: {total_refreshed_data['curseforge']} 个 Mod 的数据已更新\n"
         f"Modrinth: {total_refreshed_data['modrinth']} 个 Mod 的数据已更新"
     )
-    await bot.send_message(chat_id=config.chat_id, text=sync_message)
-    log.info(f"Message '{sync_message}' sent to telegram.")
+    await send_message(chat_id=config.chat_id, text=sync_message)
     """
     https://mod.mcimirror.top/statistics
     {
@@ -190,8 +200,7 @@ async def notify_result_to_telegram(
         f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
         f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
     )
-    await bot.send_message(chat_id=config.chat_id, text=mcim_message)
-    log.info(f"Message '{mcim_message}' sent to telegram.")
+    await send_message(chat_id=config.chat_id, text=mcim_message)
     """
     https://files.mcimirror.top/api/stats/center
     {
@@ -225,8 +234,7 @@ async def notify_result_to_telegram(
         f"总文件数：{files_stats['totalFiles']} 个\n"
         f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
     )
-    await bot.send_message(chat_id=config.chat_id, text=files_message)
-    log.info(f"Message '{files_message}' sent to telegram.")
+    await send_message(chat_id=config.chat_id, text=files_message)
 
 
 def sync_with_pause(sync_function, *args):
