@@ -6,7 +6,6 @@ from config import Config
 from models.database.curseforge import Mod, File, Fingerprint
 from models.database.modrinth import Project, Version, File as ModrinthFile
 from models.database.file_cdn import File as CDNFile
-from utils.loger import log
 
 _mongodb_config = Config.load().mongodb
 
