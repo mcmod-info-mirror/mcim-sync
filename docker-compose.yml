@@ -15,8 +15,8 @@ services:
       TZ: Asia/Shanghai
     restart: always
     volumes:
-      - /opt/mcim_sync/config.json:/config.json
-      - /opt/mcim_sync/logs:/logs
+      - /opt/mcim_sync/config.json:/app/config.json
+      - /opt/mcim_sync/logs:/app/logs
     command: >
       sh -c "python start.py"
     logging: *default-logging
@@ -26,3 +26,4 @@ services:
           memory: 500M
         reservations:
           memory: 200M
+    network_mode: host
