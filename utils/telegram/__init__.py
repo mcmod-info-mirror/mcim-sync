@@ -2,6 +2,7 @@ import telegram
 import tenacity
 from datetime import datetime
 from telegram.error import TelegramError
+from httpx._exceptions import NetworkError
 
 from utils.network import request_sync
 from utils import SyncMode
@@ -25,7 +26,7 @@ def init_bot():
 
 
 @tenacity.retry(
-    retry=tenacity.retry_if_exception_type(TelegramError),
+    # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
     wait=tenacity.wait_fixed(1),
     stop=tenacity.stop_after_attempt(10),
 )
