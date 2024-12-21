@@ -98,6 +98,7 @@ def fetch_expired_curseforge_data() -> List[int]:
         expired_modids.update(check_expired_result)
         log.debug(f"Matched {len(check_expired_result)} expired mods")
         time.sleep(CURSEFORGE_DELAY)
+        log.debug(f'Delay {CURSEFORGE_DELAY} seconds')
     return list(expired_modids)
 
 
@@ -117,6 +118,7 @@ def fetch_expired_modrinth_data() -> List[str]:
         expired_project_ids.update(check_expired_result)
         log.debug(f"Matched {len(check_expired_result)} expired projects")
         time.sleep(MODRINTH_DELAY)
+        log.debug(f'Delay {MODRINTH_DELAY} seconds')
     return list(expired_project_ids)
 
 # fetch all
@@ -136,6 +138,7 @@ def fetch_all_curseforge_data() -> List[int]:
         skip += CURSEFORGE_LIMIT_SIZE
         result.extend([mod.id for mod in mods_result])
         time.sleep(CURSEFORGE_DELAY)
+        log.debug(f'Delay {CURSEFORGE_DELAY} seconds')
     return result
 
 
@@ -153,6 +156,7 @@ def fetch_all_modrinth_data() -> List[str]:
         skip += MODRINTH_LIMIT_SIZE
         result.extend([project.id for project in projects_result])
         time.sleep(MODRINTH_DELAY)
+        log.debug(f'Delay {MODRINTH_DELAY} seconds')
     return result
 
 # fetch by sync_date
@@ -183,5 +187,6 @@ def fetch_modrinth_data_by_sync_at():
         skip += MODRINTH_LIMIT_SIZE
         result.extend([project.id for project in projects_result])
         time.sleep(MODRINTH_DELAY)
+        log.debug(f'Delay {MODRINTH_DELAY} seconds')
     return result
 
