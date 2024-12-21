@@ -19,19 +19,13 @@ from utils.network import request_sync
 from exceptions import ResponseCodeException
 from config import Config
 from database.mongodb import sync_mongo_engine as mongodb_engine
-
+from utils import submit_models
 from utils.loger import log
 
 config = Config.load()
 
 API = config.modrinth_api
 MAX_LENGTH = config.max_file_size
-
-
-def submit_models(models: List[Union[Project, File, Version]]):
-    if len(models) != 0:
-        log.debug(f"Submited models: {len(models)}")
-        mongodb_engine.save_all(models)
 
 
 def sync_project_all_version(
@@ -57,6 +51,9 @@ def sync_project_all_version(
         if e.status_code == 404:
             models.append(Project(found=False, id=project_id, slug=project_id))
             return
+    except Exception as e:
+        log.error(f"Failed to sync project {project_id} versions info: {e}")
+        return
     latest_version_id_list = []
     for version in res:
         latest_version_id_list.append(version["id"])
@@ -112,6 +109,9 @@ def sync_project(project_id: str):
     except ResponseCodeException as e:
         if e.status_code == 404:
             models = [Project(found=False, id=project_id, slug=project_id)]
+    except Exception as e:
+        log.error(f"Failed to sync project {project_id} info: {e}")
+        return
     submit_models(models)
 
 
@@ -120,7 +120,10 @@ def fetch_mutil_projects_info(project_ids: List[str]):
         res = request_sync(
             f"{API}/projects", params={"ids": json.dumps(project_ids)}
         ).json()
+        return res
     except ResponseCodeException as e:
         if e.status_code == 404:
             return []
-    return res
+    except Exception as e:
+        log.error(f"Failed to fetch projects info: {e}")
+        return []
