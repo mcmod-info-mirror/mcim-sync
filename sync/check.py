@@ -1,6 +1,7 @@
 
 from typing import Union, List, Set
 import datetime
+import time
 
 from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
 from models.database.modrinth import Version
@@ -20,6 +21,8 @@ config = Config.load()
 CURSEFORGE_LIMIT_SIZE: int = config.curseforge_chunk_size
 MODRINTH_LIMIT_SIZE: int = config.modrinth_chunk_size
 MAX_WORKERS: int = config.max_workers
+CURSEFORGE_DELAY: Union[float, int] = config.curseforge_delay
+MODRINTH_DELAY: Union[float, int] = config.modrinth_delay
 
 def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
     mod_date = {mod.id: {"sync_date": mod.dateModified} for mod in mods}
@@ -94,6 +97,8 @@ def fetch_expired_curseforge_data() -> List[int]:
         check_expired_result = check_curseforge_data_updated(mods_result)
         expired_modids.update(check_expired_result)
         log.debug(f"Matched {len(check_expired_result)} expired mods")
+        time.sleep(CURSEFORGE_DELAY)
+        log.debug(f'Delay {CURSEFORGE_DELAY} seconds')
     return list(expired_modids)
 
 
@@ -112,6 +117,8 @@ def fetch_expired_modrinth_data() -> List[str]:
         check_expired_result = check_modrinth_data_updated(projects_result)
         expired_project_ids.update(check_expired_result)
         log.debug(f"Matched {len(check_expired_result)} expired projects")
+        time.sleep(MODRINTH_DELAY)
+        log.debug(f'Delay {MODRINTH_DELAY} seconds')
     return list(expired_project_ids)
 
 # fetch all
@@ -130,6 +137,8 @@ def fetch_all_curseforge_data() -> List[int]:
             break
         skip += CURSEFORGE_LIMIT_SIZE
         result.extend([mod.id for mod in mods_result])
+        time.sleep(CURSEFORGE_DELAY)
+        log.debug(f'Delay {CURSEFORGE_DELAY} seconds')
     return result
 
 
@@ -146,6 +155,8 @@ def fetch_all_modrinth_data() -> List[str]:
             break
         skip += MODRINTH_LIMIT_SIZE
         result.extend([project.id for project in projects_result])
+        time.sleep(MODRINTH_DELAY)
+        log.debug(f'Delay {MODRINTH_DELAY} seconds')
     return result
 
 # fetch by sync_date
@@ -175,5 +186,7 @@ def fetch_modrinth_data_by_sync_at():
             break
         skip += MODRINTH_LIMIT_SIZE
         result.extend([project.id for project in projects_result])
+        time.sleep(MODRINTH_DELAY)
+        log.debug(f'Delay {MODRINTH_DELAY} seconds')
     return result
 
