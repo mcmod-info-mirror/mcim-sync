@@ -10,14 +10,24 @@ from utils import SyncMode
 from config import Config
 from models.database.curseforge import Mod
 from models.database.modrinth import Project
-from sync.curseforge import fetch_mutil_mods_info, sync_mod_all_files
-from sync.modrinth import fetch_mutil_projects_info, sync_project_all_version
+from sync.curseforge import sync_mod, sync_mod_all_files
+from sync.modrinth import sync_project, sync_project_all_version
 from sync.check import (
     fetch_all_curseforge_data,
     fetch_all_modrinth_data,
     fetch_expired_curseforge_data,
     fetch_expired_modrinth_data,
     fetch_modrinth_data_by_sync_at,
+    check_curseforge_fileids_available,
+    check_curseforge_modids_available,
+    check_curseforge_fingerprints_available,
+    check_modrinth_project_ids_available,
+    check_modrinth_version_ids_available,
+    check_modrinth_hashes_available,
+)
+from sync.queue import (
+    clear_curseforge_all_queues,
+    clear_modrinth_all_queues,
 )
 from exceptions import ResponseCodeException, TooManyRequestsException
 
@@ -78,7 +88,7 @@ def create_tasks_pool(sync_function, data, max_workers, thread_name_prefix):
     return thread_pool, futures
 
 
-async def sync_with_modify_date():
+async def refresh_with_modify_date():
     log.info("Start fetching expired data.")
     notification = Notification()
 
@@ -291,3 +301,70 @@ async def sync_modrinth_by_sync_at():
 #     finally:
 #         sync_job.resume()
 #         log.info("Full sync finished, resume dateime_based sync.")
+
+
+def sync_curseforge_queue():
+    log.info("Start fetching curseforge queue.")
+    modids = []
+    avaliable_modids = check_curseforge_modids_available()
+    modids.extend(avaliable_modids)
+    log.info(f"CurseForge modids available: {len(avaliable_modids)}")
+    avaliable_fileids = check_curseforge_fileids_available()
+    modids.extend(avaliable_fileids)
+    log.info(f"CurseForge fileids available: {len(avaliable_fileids)}")
+    avaliable_fingerprints = check_curseforge_fingerprints_available()
+    modids.extend(avaliable_fingerprints)
+    log.info(f"CurseForge fingerprints available: {len(avaliable_fingerprints)}")
+
+    modids = list(set(modids))
+    log.info(f"Total modids: {len(modids)} to sync.")
+
+    if modids:
+        curseforge_pause_event.set()
+        pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
+
+        for future in as_completed(futures):
+            # 不需要返回值
+            pass
+
+        pool.shutdown()
+        log.info(f"CurseForge queue sync finished, total: {len(modids)}")
+
+        # clear queue
+        clear_curseforge_all_queues()
+        log.info("CurseForge queue cleared.")
+
+
+def sync_modrinth_queue():
+    log.info("Start fetching modrinth queue.")
+    project_ids = []
+
+    avaliable_project_ids = check_modrinth_project_ids_available()
+    project_ids.extend(avaliable_project_ids)
+    log.info(f"Modrinth project ids available: {len(avaliable_project_ids)}")
+    avaliable_version_ids = check_modrinth_version_ids_available()
+    project_ids.extend(avaliable_version_ids)
+    log.info(f"Modrinth version ids available: {len(avaliable_version_ids)}")
+    avaliable_hashes = check_modrinth_hashes_available()
+    project_ids.extend(avaliable_hashes)
+    log.info(f"Modrinth hashes available: {len(avaliable_hashes)}")
+
+    project_ids = list(set(project_ids))
+    log.info(f"Total project ids: {len(project_ids)} to sync.")
+
+    if project_ids:
+        modrinth_pause_event.set()
+        pool, futures = create_tasks_pool(
+            sync_project, project_ids[:2], MAX_WORKERS, "modrinth"
+        )
+
+        for future in as_completed(futures):
+            # 不需要返回值
+            pass
+
+        pool.shutdown()
+        log.info(f"Modrinth queue sync finished, total: {len(project_ids)}")
+
+        # clear queue
+        clear_modrinth_all_queues()
+        log.info("Modrinth queue cleared.")

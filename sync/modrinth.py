@@ -98,14 +98,15 @@ def sync_project(project_id: str):
     try:
         res = request_sync(f"{API}/project/{project_id}").json()
         models.append(Project(found=True, **res))
-        db_project = mongodb_engine.find_one(Project, Project.id == project_id)
-        if db_project is not None:
-            # check updated
-            if db_project.updated != res["updated"]:
-                models.append(Project(found=True, **res))
-                sync_project_all_version(project_id, slug=res["slug"])
-            else:
-                return
+        # db_project = mongodb_engine.find_one(Project, Project.id == project_id)
+        # if db_project is not None:
+        #     # check updated
+        #     if db_project.updated != res["updated"]:
+        #         models.append(Project(found=True, **res))
+        #         sync_project_all_version(project_id, slug=res["slug"])
+        #     else:
+        #         return
+        sync_project_all_version(project_id, slug=res["slug"])
     except ResponseCodeException as e:
         if e.status_code == 404:
             models = [Project(found=False, id=project_id, slug=project_id)]
@@ -127,3 +128,33 @@ def fetch_mutil_projects_info(project_ids: List[str]):
     except Exception as e:
         log.error(f"Failed to fetch projects info: {e}")
         return []
+
+
+def fetch_multi_versions_info(version_ids: List[str]):
+    try:
+        res = request_sync(
+            f"{API}/versions", params={"ids": json.dumps(version_ids)}
+        ).json()
+        return res
+    except ResponseCodeException as e:
+        if e.status_code == 404:
+            return []
+    except Exception as e:
+        log.error(f"Failed to fetch versions info: {e}")
+        return []
+
+
+def fetch_multi_hashes_info(hashes: List[str], algorithm: str):
+    try:
+        res = request_sync(
+            method="POST",
+            url=f"{API}/version_files",
+            json={"hashes": hashes, "algorithm": algorithm},
+        ).json()
+        return res
+    except ResponseCodeException as e:
+        if e.status_code == 404:
+            return {}
+    except Exception as e:
+        log.error(f"Failed to fetch hashes info: {e}")
+        return {}

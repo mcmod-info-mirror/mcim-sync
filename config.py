@@ -11,16 +11,23 @@ class MongodbConfigModel(BaseModel):
     host: str = "mongodb"
     port: int = 27017
     auth: bool = True
-    user: str = "username"
-    password: str = "password"
+    user: Optional[str] = None
+    password: Optional[str] = None
     database: str = "database"
+
+class RedisConfigModel(BaseModel):
+    host: str = "redis"
+    port: int = 6379
+    password: Optional[str] = None
+    database: int = 0
 
 class ConfigModel(BaseModel):
     debug: bool = False
     mongodb: MongodbConfigModel = MongodbConfigModel()
-
-    interval: int = 60 * 60 * 2 # 2 hours
-    interval_full: int = 60 * 60 * 72 # 72 hours
+    redis: RedisConfigModel = RedisConfigModel()
+    interval_refresh: int = 60 * 60 * 2 # 2 hours
+    interval_sync_curseforge: int = 60 * 5 # 5 minutes
+    interval_sync_modrinth: int = 60 * 5 # 5 minutes
     max_workers: int = 8
     sync_curseforge: bool = True
     sync_modrinth: bool = True

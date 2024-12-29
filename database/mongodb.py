@@ -9,9 +9,6 @@ from models.database.file_cdn import File as CDNFile
 
 _mongodb_config = Config.load().mongodb
 
-aio_mongo_engine: AIOEngine = None
-sync_mongo_engine: SyncEngine = None
-
 
 def init_mongodb_syncengine() -> SyncEngine:
     """
@@ -30,42 +27,4 @@ def init_mongodb_syncengine() -> SyncEngine:
     return sync_mongo_engine
 
 
-def init_mongodb_aioengine() -> AIOEngine:
-    """
-    Raw Motor client handler, use it when beanie cannot work
-    :return:
-    """
-    return AIOEngine(
-        client=AsyncIOMotorClient(
-            f"mongodb://{_mongodb_config.user}:{_mongodb_config.password}@{_mongodb_config.host}:{_mongodb_config.port}"
-            if _mongodb_config.auth
-            else f"mongodb://{_mongodb_config.host}:{_mongodb_config.port}"
-        ),
-        database="mcim_backend",
-    )
-
-
-async def setup_async_mongodb(engine: AIOEngine) -> None:
-    """
-    Start beanie when process started.
-    :return:
-    """
-    # try:
-    await engine.configure_database(
-        [
-            # CurseForge
-            Mod,
-            File,
-            Fingerprint,
-            # Modrinth
-            Project,
-            Version,
-            ModrinthFile,
-            # File CDN
-            CDNFile,
-        ]
-    )
-
-
-aio_mongo_engine: AIOEngine = init_mongodb_aioengine()
 sync_mongo_engine: SyncEngine = init_mongodb_syncengine()

@@ -1,19 +1,31 @@
-
 from typing import Union, List, Set
+from odmantic import query
 import datetime
 import time
 
-from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
-from models.database.modrinth import Version
-from utils.network import request_sync
+from database.mongodb import sync_mongo_engine
 from utils.loger import log
 from config import Config
 from models.database.curseforge import Mod
 from models.database.modrinth import Project
-from sync.curseforge import fetch_mutil_mods_info, sync_mod_all_files
-from sync.modrinth import fetch_mutil_projects_info, sync_project_all_version
-from exceptions import ResponseCodeException, TooManyRequestsException
-from utils.telegram import send_message
+from sync.curseforge import (
+    fetch_mutil_mods_info,
+    fetch_mutil_files,
+    fetch_mutil_fingerprints,
+)
+from sync.modrinth import (
+    fetch_mutil_projects_info,
+    fetch_multi_versions_info,
+    fetch_multi_hashes_info,
+)
+from sync.queue import (
+    fetch_modrinth_project_ids_queue,
+    fetch_modrinth_version_ids_queue,
+    fetch_modrinth_hashes_queue,
+    fetch_curseforge_modids_queue,
+    fetch_curseforge_fileids_queue,
+    fetch_curseforge_fingerprints_queue,
+)
 from utils import submit_models
 
 config = Config.load()
@@ -23,6 +35,7 @@ MODRINTH_LIMIT_SIZE: int = config.modrinth_chunk_size
 MAX_WORKERS: int = config.max_workers
 CURSEFORGE_DELAY: Union[float, int] = config.curseforge_delay
 MODRINTH_DELAY: Union[float, int] = config.modrinth_delay
+
 
 def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
     mod_date = {mod.id: {"sync_date": mod.dateModified} for mod in mods}
@@ -81,6 +94,7 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
 
 # fetch expired
 
+
 def fetch_expired_curseforge_data() -> List[int]:
     expired_modids = set()
     skip = 0
@@ -98,7 +112,7 @@ def fetch_expired_curseforge_data() -> List[int]:
         expired_modids.update(check_expired_result)
         log.debug(f"Matched {len(check_expired_result)} expired mods")
         time.sleep(CURSEFORGE_DELAY)
-        log.debug(f'Delay {CURSEFORGE_DELAY} seconds')
+        log.debug(f"Delay {CURSEFORGE_DELAY} seconds")
     return list(expired_modids)
 
 
@@ -118,10 +132,12 @@ def fetch_expired_modrinth_data() -> List[str]:
         expired_project_ids.update(check_expired_result)
         log.debug(f"Matched {len(check_expired_result)} expired projects")
         time.sleep(MODRINTH_DELAY)
-        log.debug(f'Delay {MODRINTH_DELAY} seconds')
+        log.debug(f"Delay {MODRINTH_DELAY} seconds")
     return list(expired_project_ids)
 
+
 # fetch all
+
 
 def fetch_all_curseforge_data() -> List[int]:
     skip = 0
@@ -138,7 +154,7 @@ def fetch_all_curseforge_data() -> List[int]:
         skip += CURSEFORGE_LIMIT_SIZE
         result.extend([mod.id for mod in mods_result])
         time.sleep(CURSEFORGE_DELAY)
-        log.debug(f'Delay {CURSEFORGE_DELAY} seconds')
+        log.debug(f"Delay {CURSEFORGE_DELAY} seconds")
     return result
 
 
@@ -156,10 +172,12 @@ def fetch_all_modrinth_data() -> List[str]:
         skip += MODRINTH_LIMIT_SIZE
         result.extend([project.id for project in projects_result])
         time.sleep(MODRINTH_DELAY)
-        log.debug(f'Delay {MODRINTH_DELAY} seconds')
+        log.debug(f"Delay {MODRINTH_DELAY} seconds")
     return result
 
+
 # fetch by sync_date
+
 
 def fetch_modrinth_data_by_sync_at():
     skip = 0
@@ -187,6 +205,102 @@ def fetch_modrinth_data_by_sync_at():
         skip += MODRINTH_LIMIT_SIZE
         result.extend([project.id for project in projects_result])
         time.sleep(MODRINTH_DELAY)
-        log.debug(f'Delay {MODRINTH_DELAY} seconds')
+        log.debug(f"Delay {MODRINTH_DELAY} seconds")
     return result
 
+
+# check modrinth_project_ids queue
+def check_modrinth_project_ids_available():
+    """
+    返回对应的 project_ids
+    """
+    available_project_ids = []
+    project_ids = fetch_modrinth_project_ids_queue()
+
+    for i in range(0, len(project_ids), MODRINTH_LIMIT_SIZE):
+        chunk = project_ids[i : i + MODRINTH_LIMIT_SIZE]
+        info = fetch_mutil_projects_info(project_ids=chunk)
+        # 统一缓存
+        # # save in mongodb
+        # models = [Project(**project) for project in info]
+        # submit_models(models)
+        available_project_ids.extend([project["id"] for project in info])
+    return list(set(available_project_ids))
+
+
+# check modrinth_version_ids queue
+def check_modrinth_version_ids_available():
+    """
+    返回对应的 project_ids
+    """
+    available_project_ids = []
+    version_ids = fetch_modrinth_version_ids_queue()
+
+    for i in range(0, len(version_ids), MODRINTH_LIMIT_SIZE):
+        chunk = version_ids[i : i + MODRINTH_LIMIT_SIZE]
+        info = fetch_multi_versions_info(version_ids=chunk)
+        available_project_ids.extend([version["project_id"] for version in info])
+    return list(set(available_project_ids))
+
+
+# check modrinth_hashes_{algorithm} queue
+def check_modrinth_hashes_available():
+    """
+    返回对应的 project_ids
+    """
+    available_project_ids = []
+    algorithms = ["sha1", "sha256"]
+    for algorithm in algorithms:
+        hashes = fetch_modrinth_hashes_queue(algorithm)
+        for i in range(0, len(hashes), MODRINTH_LIMIT_SIZE):
+            chunk = hashes[i : i + MODRINTH_LIMIT_SIZE]
+            info = fetch_multi_hashes_info(hashes=chunk, algorithm=algorithm)
+            available_project_ids.extend([hash["project_id"] for hash in info.values()])
+    return list(set(available_project_ids))
+
+
+# check curseforge_modids queue
+def check_curseforge_modids_available():
+    """
+    返回对应的 modids
+    """
+    available_modids = []
+    modids = fetch_curseforge_modids_queue()
+
+    for i in range(0, len(modids), CURSEFORGE_LIMIT_SIZE):
+        chunk = modids[i : i + CURSEFORGE_LIMIT_SIZE]
+        info = fetch_mutil_mods_info(modIds=chunk)
+        available_modids.extend([mod["id"] for mod in info])
+    return list(set(available_modids))
+
+
+# check curseforge_fileids queue
+def check_curseforge_fileids_available():
+    """
+    返回对应的 modids
+    """
+    available_modids = []
+    fileids = fetch_curseforge_fileids_queue()
+
+    for i in range(0, len(fileids), CURSEFORGE_LIMIT_SIZE):
+        chunk = fileids[i : i + CURSEFORGE_LIMIT_SIZE]
+        info = fetch_mutil_files(fileIds=chunk)
+        available_modids.extend([file["modId"] for file in info])
+    return list(set(available_modids))
+
+
+# check curseforge_fingerprints queue
+def check_curseforge_fingerprints_available():
+    """
+    返回对应的 modids
+    """
+    available_modids = []
+    fingerprints = fetch_curseforge_fingerprints_queue()
+
+    for i in range(0, len(fingerprints), CURSEFORGE_LIMIT_SIZE):
+        chunk = fingerprints[i : i + CURSEFORGE_LIMIT_SIZE]
+        info = fetch_mutil_fingerprints(fingerprints=chunk)
+        available_modids.extend(
+            [fingerprint["file"]["modId"] for fingerprint in info["exactMatches"]]
+        )
+    return list(set(available_modids))

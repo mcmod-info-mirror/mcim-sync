@@ -22,7 +22,6 @@ HEADERS = {
 }
 
 
-
 def append_model_from_files_res(
     res, latestFiles: dict, need_to_cache: bool = True
 ) -> List[Union[File, Fingerprint]]:
@@ -67,52 +66,49 @@ def append_model_from_files_res(
 def sync_mod_all_files(
     modId: int,
     latestFiles: List[dict] = None,
-    need_to_cache: bool = True,  # 已存在于数据库中的 mod 当然要缓存
+    need_to_cache: bool = True,
 ) -> List[Union[File, Mod]]:
     models = []
     if not latestFiles:
         mod_model = mongodb_engine.find_one(Mod, Mod.id == modId)
         if mod_model is not None:
             latestFiles = mod_model.latestFiles
-            need_to_cache = True if mod_model.classId == 6 else False
+            need_to_cache = mod_model.classId == 6
+
     try:
         params = {"index": 0, "pageSize": 50}
-        res = request_sync(
-            f"{API}/v1/mods/{modId}/files",
-            headers=HEADERS,
-            params=params,
-        ).json()
-
         file_id_list = []
 
-        models = append_model_from_files_res(res, latestFiles, need_to_cache=need_to_cache)
-        file_id_list.extend([file["id"] for file in res["data"]])
-        submit_models(models=models)
-        log.debug(
-            f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{res["pagination"]["totalCount"]}'
-        )
-
-        page = Pagination(**res["pagination"])
-        # index A zero based index of the first item to include in the response, the limit is: (index + pageSize <= 10,000).
-        while page.index < page.totalCount - 1:
-            params = {"index": page.index + page.pageSize, "pageSize": page.pageSize}
+        while True:
             res = request_sync(
-                f"{API}/v1/mods/{modId}/files", headers=HEADERS, params=params
+                f"{API}/v1/mods/{modId}/files",
+                headers=HEADERS,
+                params=params,
             ).json()
-            page = Pagination(**res["pagination"])
+
             models = append_model_from_files_res(
                 res, latestFiles, need_to_cache=need_to_cache
             )
             file_id_list.extend([file["id"] for file in res["data"]])
             submit_models(models=models)
+
+            page = Pagination(**res["pagination"])
             log.debug(
-                f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{res["pagination"]["totalCount"]}'
+                f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{page.totalCount}'
             )
-        else:
-            removed_count = mongodb_engine.remove(
-                File, File.modId == modId, query.not_in(File.id, file_id_list)
-            )
-            log.info(f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files")
+
+            if page.index >= page.totalCount - 1:
+                break
+
+            params["index"] = page.index + page.pageSize
+
+        removed_count = mongodb_engine.remove(
+            File, File.modId == modId, query.not_in(File.id, file_id_list)
+        )
+        log.info(
+            f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files"
+        )
+
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
@@ -121,16 +117,19 @@ def sync_mod_all_files(
     except Exception as e:
         log.error(f"Sync mod {modId} failed, {e}")
 
+    return models
+
+
 def sync_mod(modId: int):
     models: List[Union[File, Mod]] = []
     try:
         res = request_sync(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
         models.append(Mod(found=True, **res))
-        mod = mongodb_engine.find_one(Mod, Mod.id == modId)
-        if mod is not None:
-            if mod.dateReleased == models[0].dateReleased:
-                log.info(f"Mod {modId} is not out-of-date, pass!")
-                return
+        # mod = mongodb_engine.find_one(Mod, Mod.id == modId)
+        # if mod is not None:
+        #     if mod.dateReleased == models[0].dateReleased:
+        #         log.info(f"Mod {modId} is not out-of-date, pass!")
+        #         return
         sync_mod_all_files(
             modId,
             latestFiles=res["latestFiles"],
@@ -144,7 +143,6 @@ def sync_mod(modId: int):
         log.error(f"Sync mod {modId} failed, {e}")
 
 
-
 def fetch_mutil_mods_info(modIds: List[int]):
     modIds = list(set(modIds))
     data = {"modIds": modIds}
@@ -155,4 +153,31 @@ def fetch_mutil_mods_info(modIds: List[int]):
         return res
     except Exception as e:
         log.error(f"Failed to fetch mutil mods info: {e}")
+        return []
+
+
+def fetch_mutil_files(fileIds: List[int]):
+    fileIds = list(set(fileIds))
+    data = {"fileIds": fileIds}
+    try:
+        res = request_sync(
+            method="POST", url=f"{API}/v1/mods/files", json=data, headers=HEADERS
+        ).json()["data"]
+        return res
+    except Exception as e:
+        log.error(f"Failed to fetch mutil files info: {e}")
+        return []
+
+
+def fetch_mutil_fingerprints(fingerprints: List[int]):
+    try:
+        res = request_sync(
+            method="POST",
+            url=f"{API}/v1/fingerprints/432",
+            headers=HEADERS,
+            json={"fingerprints": fingerprints},
+        ).json()["data"]
+        return res
+    except Exception as e:
+        log.error(f"Failed to fetch mutil fingerprints info: {e}")
         return []
