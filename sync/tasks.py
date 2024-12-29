@@ -312,7 +312,7 @@ async def sync_curseforge_queue():
     modids.extend(avaliable_fingerprints)
     log.info(f"CurseForge fingerprints available: {len(avaliable_fingerprints)}")
 
-    modids = list(set(modids))
+    modids = [modid for modid in modids if modid >= 30000] # 排除掉 0-30000 的 modid
     log.info(f"Total modids: {len(modids)} to sync.")
 
     if modids:
