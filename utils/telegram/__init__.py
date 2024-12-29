@@ -1,8 +1,11 @@
+from typing import List, Dict, Union
+from pydantic import BaseModel
 import telegram
 import tenacity
 from datetime import datetime
 from telegram.error import TelegramError
 from httpx._exceptions import NetworkError
+from abc import ABC, abstractmethod
 
 from utils.network import request_sync
 from utils import SyncMode
@@ -35,13 +38,19 @@ async def send_message(text: str):
     log.info(f"Message '{text}' sent to telegram.")
 
 
-class Notification:
+class Notification(ABC):
+    @abstractmethod
+    async def send_to_telegram(self):
+        pass
+
+
+class RefreshNotification(Notification):
     def __init__(self, sync_mode: SyncMode = SyncMode.MODIFY_DATE):
         self.modrinth_refreshed_count: int = 0
         self.curseforge_refreshed_count: int = 0
         self.sync_mode: SyncMode = sync_mode
 
-    async def notify_result_to_telegram(self):
+    async def send_to_telegram(self):
         sync_message = (
             f"本次同步为{self.sync_mode.value}同步\n"
             f"CurseForge: {self.curseforge_refreshed_count} 个 Mod 的数据已更新\n"
@@ -116,3 +125,23 @@ class Notification:
         )
         final_message = f"{sync_message}\n\n{mcim_message}\n\n{files_message}"
         await send_message(final_message)
+
+
+class ProjectDetail(BaseModel):
+    id: Union[int, str]
+    name: str
+    version_count: int
+
+
+class SyncNotification(Notification):
+    def __init__(self, platform: str, projects_detail_info: List[ProjectDetail]):
+        self.platform: str = platform
+        self.catched_count: int = len(projects_detail_info)
+        self.projects_detail_info: List[ProjectDetail] = projects_detail_info
+
+    async def send_to_telegram(self):
+        message = f"本次从 API 请求中总共捕捉到 {self.catched_count} 个 {self.platform} 模组数据："
+        for project in self.projects_detail_info:
+            message += f"\n{project.name} (ID: {project.id}) 共有 {project.version_count} 个版本"
+
+        await send_message(message)

@@ -21,6 +21,7 @@ from config import Config
 from database.mongodb import sync_mongo_engine as mongodb_engine
 from utils import submit_models
 from utils.loger import log
+from utils.telegram import ProjectDetail
 
 config = Config.load()
 
@@ -88,10 +89,12 @@ def sync_project_all_version(
         query.not_in(Version.id, latest_version_id_list),
         Version.project_id == project_id,
     )
+    total_count = len(res)
     log.info(
-        f"Finished sync project {project_id} versions info, total {len(res)} versions, removed {removed_count} versions"
+        f"Finished sync project {project_id} versions info, total {total_count} versions, removed {removed_count} versions"
     )
 
+    return total_count
 
 def sync_project(project_id: str):
     models = []
@@ -106,7 +109,7 @@ def sync_project(project_id: str):
         #         sync_project_all_version(project_id, slug=res["slug"])
         #     else:
         #         return
-        sync_project_all_version(project_id, slug=res["slug"])
+        total_count = sync_project_all_version(project_id, slug=res["slug"])
     except ResponseCodeException as e:
         if e.status_code == 404:
             models = [Project(found=False, id=project_id, slug=project_id)]
@@ -114,6 +117,7 @@ def sync_project(project_id: str):
         log.error(f"Failed to sync project {project_id} info: {e}")
         return
     submit_models(models)
+    return ProjectDetail(id=project_id, name=res["slug"], version_count=total_count)
 
 
 def fetch_mutil_projects_info(project_ids: List[str]):

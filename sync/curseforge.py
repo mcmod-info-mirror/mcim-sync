@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+from utils.telegram import ProjectDetail
 from odmantic import query
 import time
 
@@ -109,6 +110,8 @@ def sync_mod_all_files(
             f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files"
         )
 
+        return page.totalCount
+
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
@@ -120,7 +123,7 @@ def sync_mod_all_files(
     return models
 
 
-def sync_mod(modId: int):
+def sync_mod(modId: int) -> :
     models: List[Union[File, Mod]] = []
     try:
         res = request_sync(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
@@ -130,12 +133,17 @@ def sync_mod(modId: int):
         #     if mod.dateReleased == models[0].dateReleased:
         #         log.info(f"Mod {modId} is not out-of-date, pass!")
         #         return
-        sync_mod_all_files(
+        total_count = sync_mod_all_files(
             modId,
             latestFiles=res["latestFiles"],
             need_to_cache=True if res["classId"] == 6 else False,
         )
         submit_models(models)
+        return ProjectDetail(
+            id=res["id"],
+            name=res["name"],
+            version_count=total_count,
+        )
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")

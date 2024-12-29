@@ -216,6 +216,7 @@ def check_modrinth_project_ids_available():
     """
     available_project_ids = []
     project_ids = fetch_modrinth_project_ids_queue()
+    log.info(f'Fetched {len(project_ids)} modrinth project ids from queue')
 
     for i in range(0, len(project_ids), MODRINTH_LIMIT_SIZE):
         chunk = project_ids[i : i + MODRINTH_LIMIT_SIZE]
@@ -235,6 +236,7 @@ def check_modrinth_version_ids_available():
     """
     available_project_ids = []
     version_ids = fetch_modrinth_version_ids_queue()
+    log.info(f'Fetched {len(version_ids)} modrinth version ids from queue')
 
     for i in range(0, len(version_ids), MODRINTH_LIMIT_SIZE):
         chunk = version_ids[i : i + MODRINTH_LIMIT_SIZE]
@@ -252,6 +254,8 @@ def check_modrinth_hashes_available():
     algorithms = ["sha1", "sha256"]
     for algorithm in algorithms:
         hashes = fetch_modrinth_hashes_queue(algorithm)
+        log.info(f'Fetched {len(hashes)} modrinth hashes from queue')
+
         for i in range(0, len(hashes), MODRINTH_LIMIT_SIZE):
             chunk = hashes[i : i + MODRINTH_LIMIT_SIZE]
             info = fetch_multi_hashes_info(hashes=chunk, algorithm=algorithm)
@@ -266,6 +270,7 @@ def check_curseforge_modids_available():
     """
     available_modids = []
     modids = fetch_curseforge_modids_queue()
+    log.info(f'Fetched {len(modids)} curseforge modids from queue')
 
     for i in range(0, len(modids), CURSEFORGE_LIMIT_SIZE):
         chunk = modids[i : i + CURSEFORGE_LIMIT_SIZE]
@@ -281,6 +286,7 @@ def check_curseforge_fileids_available():
     """
     available_modids = []
     fileids = fetch_curseforge_fileids_queue()
+    log.info(f'Fetched {len(fileids)} curseforge fileids from queue')
 
     for i in range(0, len(fileids), CURSEFORGE_LIMIT_SIZE):
         chunk = fileids[i : i + CURSEFORGE_LIMIT_SIZE]
@@ -296,6 +302,7 @@ def check_curseforge_fingerprints_available():
     """
     available_modids = []
     fingerprints = fetch_curseforge_fingerprints_queue()
+    log.info(f'Fetched {len(fingerprints)} curseforge fingerprints from queue')
 
     for i in range(0, len(fingerprints), CURSEFORGE_LIMIT_SIZE):
         chunk = fingerprints[i : i + CURSEFORGE_LIMIT_SIZE]

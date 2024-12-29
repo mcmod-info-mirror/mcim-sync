@@ -2,14 +2,10 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from database.mongodb import init_mongodb_syncengine, sync_mongo_engine
-from models.database.modrinth import Version
 from utils.loger import log
-from utils.telegram import Notification
+from utils.telegram import RefreshNotification, SyncNotification, ProjectDetail
 from utils import SyncMode
 from config import Config
-from models.database.curseforge import Mod
-from models.database.modrinth import Project
 from sync.curseforge import sync_mod, sync_mod_all_files
 from sync.modrinth import sync_project, sync_project_all_version
 from sync.check import (
@@ -90,7 +86,7 @@ def create_tasks_pool(sync_function, data, max_workers, thread_name_prefix):
 
 async def refresh_with_modify_date():
     log.info("Start fetching expired data.")
-    notification = Notification()
+    notification = RefreshNotification()
 
     # fetch all expired data
     curseforge_expired_data = []
@@ -142,7 +138,7 @@ async def refresh_with_modify_date():
     #     f"All expired data sync finished, total: {total_expired_count}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     # )
 
-    await notification.notify_result_to_telegram()
+    await notification.send_to_telegram()
 
     log.info("All Message sent to telegram.")
 
@@ -303,7 +299,7 @@ async def sync_modrinth_by_sync_at():
 #         log.info("Full sync finished, resume dateime_based sync.")
 
 
-def sync_curseforge_queue():
+async def sync_curseforge_queue():
     log.info("Start fetching curseforge queue.")
     modids = []
     avaliable_modids = check_curseforge_modids_available()
@@ -323,9 +319,11 @@ def sync_curseforge_queue():
         curseforge_pause_event.set()
         pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
 
+        projects_detail_info = []
         for future in as_completed(futures):
-            # 不需要返回值
-            pass
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
 
         pool.shutdown()
         log.info(f"CurseForge queue sync finished, total: {len(modids)}")
@@ -334,8 +332,13 @@ def sync_curseforge_queue():
         clear_curseforge_all_queues()
         log.info("CurseForge queue cleared.")
 
+        notice = SyncNotification(projects_detail_info=projects_detail_info)
+        await notice.send_to_telegram()
 
-def sync_modrinth_queue():
+        log.info("All Message sent to telegram.")
+
+
+async def sync_modrinth_queue():
     log.info("Start fetching modrinth queue.")
     project_ids = []
 
@@ -358,9 +361,12 @@ def sync_modrinth_queue():
             sync_project, project_ids[:2], MAX_WORKERS, "modrinth"
         )
 
+        projects_detail_info = []
+
         for future in as_completed(futures):
-            # 不需要返回值
-            pass
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
 
         pool.shutdown()
         log.info(f"Modrinth queue sync finished, total: {len(project_ids)}")
@@ -368,3 +374,8 @@ def sync_modrinth_queue():
         # clear queue
         clear_modrinth_all_queues()
         log.info("Modrinth queue cleared.")
+
+        notice = SyncNotification(projects_detail_info=projects_detail_info)
+        await notice.send_to_telegram()
+
+        log.info("All Message sent to telegram.")
