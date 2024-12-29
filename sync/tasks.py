@@ -56,7 +56,8 @@ def sync_with_pause(sync_function, *args):
         # 检查是否需要暂停
         pause_event.wait()
         try:
-            sync_function(*args)
+            return sync_function(*args)
+            
         except (ResponseCodeException, TooManyRequestsException) as e:
             if e.status_code in [429, 403]:
                 log.warning(
@@ -84,7 +85,7 @@ def create_tasks_pool(sync_function, data, max_workers, thread_name_prefix):
     return thread_pool, futures
 
 
-async def refresh_with_modify_date():
+def refresh_with_modify_date():
     log.info("Start fetching expired data.")
     notification = RefreshNotification()
 
@@ -138,12 +139,12 @@ async def refresh_with_modify_date():
     #     f"All expired data sync finished, total: {total_expired_count}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     # )
 
-    await notification.send_to_telegram()
+    notification.send_to_telegram()
 
     log.info("All Message sent to telegram.")
 
 
-async def sync_modrinth_full():
+def sync_modrinth_full():
     log.info("Start fetching all data.")
     total_data = {
         "modrinth": 0,
@@ -174,7 +175,7 @@ async def sync_modrinth_full():
     # )
 
 
-async def sync_curseforge_full():
+def sync_curseforge_full():
     log.info("Start fetching all data.")
     total_data = {
         "curseforge": 0,
@@ -207,7 +208,7 @@ async def sync_curseforge_full():
     # )
 
 
-async def sync_modrinth_by_sync_at():
+def sync_modrinth_by_sync_at():
     log.info("Start fetching all data.")
     total_data = {
         "modrinth": 0,
@@ -238,7 +239,7 @@ async def sync_modrinth_by_sync_at():
     # )
 
 
-# async def sync_full():
+# def sync_full():
 #     sync_job.pause()
 #     log.info("Start full sync, stop dateime_based sync.")
 #     try:
@@ -290,7 +291,7 @@ async def sync_modrinth_by_sync_at():
 #             f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
 #         )
 
-#         await notify_result_to_telegram(total_data, sync_mode=SyncMode.FULL)
+#         notify_result_to_telegram(total_data, sync_mode=SyncMode.FULL)
 #         log.info("All Message sent to telegram.")
 #     except Exception as e:
 #         log.error(f"Full sync failed: {e}")
@@ -299,7 +300,7 @@ async def sync_modrinth_by_sync_at():
 #         log.info("Full sync finished, resume dateime_based sync.")
 
 
-async def sync_curseforge_queue():
+def sync_curseforge_queue():
     log.info("Start fetching curseforge queue.")
     modids = []
     avaliable_modids = check_curseforge_modids_available()
@@ -332,13 +333,13 @@ async def sync_curseforge_queue():
         clear_curseforge_all_queues()
         log.info("CurseForge queue cleared.")
 
-        notice = SyncNotification(projects_detail_info=projects_detail_info)
-        await notice.send_to_telegram()
+        notice = SyncNotification(platform="curseforge", projects_detail_info=projects_detail_info)
+        notice.send_to_telegram()
 
         log.info("All Message sent to telegram.")
 
 
-async def sync_modrinth_queue():
+def sync_modrinth_queue():
     log.info("Start fetching modrinth queue.")
     project_ids = []
 
@@ -358,7 +359,7 @@ async def sync_modrinth_queue():
     if project_ids:
         modrinth_pause_event.set()
         pool, futures = create_tasks_pool(
-            sync_project, project_ids[:2], MAX_WORKERS, "modrinth"
+            sync_project, project_ids, MAX_WORKERS, "modrinth"
         )
 
         projects_detail_info = []
@@ -375,7 +376,7 @@ async def sync_modrinth_queue():
         clear_modrinth_all_queues()
         log.info("Modrinth queue cleared.")
 
-        notice = SyncNotification(projects_detail_info=projects_detail_info)
-        await notice.send_to_telegram()
+        notice = SyncNotification(platform="modrinth", projects_detail_info=projects_detail_info)
+        notice.send_to_telegram()
 
         log.info("All Message sent to telegram.")

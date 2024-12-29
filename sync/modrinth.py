@@ -96,7 +96,7 @@ def sync_project_all_version(
 
     return total_count
 
-def sync_project(project_id: str):
+def sync_project(project_id: str) -> ProjectDetail:
     models = []
     try:
         res = request_sync(f"{API}/project/{project_id}").json()

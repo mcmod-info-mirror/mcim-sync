@@ -1,10 +1,10 @@
 from typing import List, Dict, Union
 from pydantic import BaseModel
-import telegram
+# import telegram
 import tenacity
 from datetime import datetime
-from telegram.error import TelegramError
-from httpx._exceptions import NetworkError
+# from telegram.error import TelegramError
+# from httpx._exceptions import NetworkError
 from abc import ABC, abstractmethod
 
 from utils.network import request_sync
@@ -12,20 +12,30 @@ from utils import SyncMode
 from config import Config
 from utils.loger import log
 
-bot: telegram.Bot
+# bot: telegram.Bot
 config = Config.load()
 
 
-def init_bot():
-    global bot
-    bot = telegram.Bot(
-        token=config.bot_token,
-        base_url=config.bot_api,
-        request=telegram.request.HTTPXRequest(
-            proxy=config.telegram_proxy, connection_pool_size=64
-        ),
-    )
-    return bot
+# def init_bot():
+#     global bot
+#     bot = telegram.Bot(
+#         token=config.bot_token,
+#         base_url=config.bot_api,
+#         request=telegram.request.HTTPXRequest(
+#             proxy=config.telegram_proxy, connection_pool_size=64
+#         ),
+#     )
+#     return bot
+
+
+# @tenacity.retry(
+#     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
+#     wait=tenacity.wait_fixed(1),
+#     stop=tenacity.stop_after_attempt(10),
+# )
+# async def send_message(text: str):
+#     await bot.send_message(chat_id=config.chat_id, text=text)
+#     log.info(f"Message '{text}' sent to telegram.")
 
 
 @tenacity.retry(
@@ -33,14 +43,22 @@ def init_bot():
     wait=tenacity.wait_fixed(1),
     stop=tenacity.stop_after_attempt(10),
 )
-async def send_message(text: str):
-    await bot.send_message(chat_id=config.chat_id, text=text)
+def send_message_sync(text: str):
+    request_sync(
+        f"{config.bot_api}{config.bot_token}/sendMessage",
+        method="POST",
+        json={
+            "chat_id": config.chat_id,
+            "text": text,
+            # TODO: 支持 Markdown
+            # "parse_mode": "Markdown", 
+        },
+    )
     log.info(f"Message '{text}' sent to telegram.")
-
 
 class Notification(ABC):
     @abstractmethod
-    async def send_to_telegram(self):
+    def send_to_telegram(self):
         pass
 
 
@@ -50,7 +68,7 @@ class RefreshNotification(Notification):
         self.curseforge_refreshed_count: int = 0
         self.sync_mode: SyncMode = sync_mode
 
-    async def send_to_telegram(self):
+    def send_to_telegram(self):
         sync_message = (
             f"本次同步为{self.sync_mode.value}同步\n"
             f"CurseForge: {self.curseforge_refreshed_count} 个 Mod 的数据已更新\n"
@@ -124,7 +142,7 @@ class RefreshNotification(Notification):
             f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
         )
         final_message = f"{sync_message}\n\n{mcim_message}\n\n{files_message}"
-        await send_message(final_message)
+        send_message_sync(final_message)
 
 
 class ProjectDetail(BaseModel):
@@ -139,9 +157,11 @@ class SyncNotification(Notification):
         self.catched_count: int = len(projects_detail_info)
         self.projects_detail_info: List[ProjectDetail] = projects_detail_info
 
-    async def send_to_telegram(self):
+    def send_to_telegram(self):
         message = f"本次从 API 请求中总共捕捉到 {self.catched_count} 个 {self.platform} 模组数据："
         for project in self.projects_detail_info:
+            if len(message) > 4000: # Telegram 限制消息长度 4096 字符
+                break
             message += f"\n{project.name} (ID: {project.id}) 共有 {project.version_count} 个版本"
-
-        await send_message(message)
+            
+        send_message_sync(message)

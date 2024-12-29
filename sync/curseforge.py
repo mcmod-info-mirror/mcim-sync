@@ -123,7 +123,7 @@ def sync_mod_all_files(
     return models
 
 
-def sync_mod(modId: int) -> :
+def sync_mod(modId: int) -> ProjectDetail:
     models: List[Union[File, Mod]] = []
     try:
         res = request_sync(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
