@@ -3,7 +3,7 @@ from odmantic import query
 import datetime
 import time
 
-from database.mongodb import sync_mongo_engine
+from database.mongodb import sync_mongo_engine, raw_mongo_client
 from utils.loger import log
 from config import Config
 from models.database.curseforge import Mod
@@ -311,3 +311,19 @@ def check_curseforge_fingerprints_available():
             [fingerprint["file"]["modId"] for fingerprint in info["exactMatches"]]
         )
     return list(set(available_modids))
+
+def check_new_modids(modids: List[int]) -> List[int]:
+    """
+    返回对应的 modids
+    """
+    find_result = raw_mongo_client["curseforge_mods"].find({"_id": {"$in": modids}}, {"_id": 1})
+    found_modids = [mod["_id"] for mod in find_result]
+    return list(set(modids) - set(found_modids))
+
+def check_new_project_ids(project_ids: List[str]) -> List[str]:
+    """
+    返回对应的 project_ids
+    """
+    find_result = raw_mongo_client["modrinth_projects"].find({"_id": {"$in": project_ids}}, {"_id": 1})
+    found_project_ids = [project["_id"] for project in find_result]
+    return list(set(project_ids) - set(found_project_ids))

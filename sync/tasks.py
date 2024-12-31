@@ -20,6 +20,8 @@ from sync.check import (
     check_modrinth_project_ids_available,
     check_modrinth_version_ids_available,
     check_modrinth_hashes_available,
+    check_new_modids,
+    check_new_project_ids,
 )
 from sync.queue import (
     clear_curseforge_all_queues,
@@ -57,7 +59,7 @@ def sync_with_pause(sync_function, *args):
         pause_event.wait()
         try:
             return sync_function(*args)
-            
+
         except (ResponseCodeException, TooManyRequestsException) as e:
             if e.status_code in [429, 403]:
                 log.warning(
@@ -313,8 +315,11 @@ def sync_curseforge_queue():
     modids.extend(avaliable_fingerprints)
     log.info(f"CurseForge fingerprints available: {len(avaliable_fingerprints)}")
 
-    modids = [modid for modid in modids if modid >= 30000] # 排除掉 0-30000 的 modid
+    modids = [modid for modid in modids if modid >= 30000]  # 排除掉 0-30000 的 modid
     log.info(f"Total modids: {len(modids)} to sync.")
+
+    new_modids = check_new_modids(modids=modids)
+    log.info(f"New modids: {new_modids}, count: {len(new_modids)}")
 
     if modids:
         curseforge_pause_event.set()
@@ -333,7 +338,11 @@ def sync_curseforge_queue():
         clear_curseforge_all_queues()
         log.info("CurseForge queue cleared.")
 
-        notice = SyncNotification(platform="curseforge", projects_detail_info=projects_detail_info)
+        notice = SyncNotification(
+            platform="curseforge",
+            projects_detail_info=projects_detail_info,
+            new_project_ids=new_modids,
+        )
         notice.send_to_telegram()
 
         log.info("All Message sent to telegram.")
@@ -356,6 +365,9 @@ def sync_modrinth_queue():
     project_ids = list(set(project_ids))
     log.info(f"Total project ids: {len(project_ids)} to sync.")
 
+    new_project_ids = check_new_project_ids(project_ids=project_ids)
+    log.info(f"New project ids: {new_project_ids}, count: {len(new_project_ids)}")
+
     if project_ids:
         modrinth_pause_event.set()
         pool, futures = create_tasks_pool(
@@ -376,7 +388,11 @@ def sync_modrinth_queue():
         clear_modrinth_all_queues()
         log.info("Modrinth queue cleared.")
 
-        notice = SyncNotification(platform="modrinth", projects_detail_info=projects_detail_info)
+        notice = SyncNotification(
+            platform="modrinth",
+            projects_detail_info=projects_detail_info,
+            new_project_ids=new_project_ids,
+        )
         notice.send_to_telegram()
 
         log.info("All Message sent to telegram.")

@@ -1,4 +1,4 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Sequence
 from pydantic import BaseModel
 # import telegram
 import tenacity
@@ -152,16 +152,18 @@ class ProjectDetail(BaseModel):
 
 
 class SyncNotification(Notification):
-    def __init__(self, platform: str, projects_detail_info: List[ProjectDetail]):
+    def __init__(self, platform: str, new_project_ids: Sequence[Union[str, int]], projects_detail_info: List[ProjectDetail]):
         self.platform: str = platform
-        self.catched_count: int = len(projects_detail_info)
+        self.new_project_ids: Sequence[Union[str, int]] = new_project_ids
         self.projects_detail_info: List[ProjectDetail] = projects_detail_info
 
     def send_to_telegram(self):
-        message = f"本次从 API 请求中总共捕捉到 {self.catched_count} 个 {self.platform} 模组数据："
+        message = f"本次从 API 请求中总共捕捉到 {len(self.projects_detail_info)} 个 {self.platform} 的模组数据" + \
+                    f'有 {len(self.new_project_ids)} 个模组是新捕获到的'
         for project in self.projects_detail_info:
             if len(message) > 4000: # Telegram 限制消息长度 4096 字符
                 break
-            message += f"\n{project.name} (ID: {project.id}) 共有 {project.version_count} 个版本"
+            if project.id in self.new_project_ids:
+                message += f"\n{project.name} (ID: {project.id}) 共有 {project.version_count} 个版本"
             
         send_message_sync(message)
