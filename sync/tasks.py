@@ -323,7 +323,10 @@ def sync_curseforge_queue():
 
     if modids:
         curseforge_pause_event.set()
-        pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
+        # pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
+        pool, futures = create_tasks_pool(
+            sync_mod, new_modids, MAX_WORKERS, "curseforge"
+        )  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
 
         projects_detail_info = []
         for future in as_completed(futures):
@@ -341,7 +344,7 @@ def sync_curseforge_queue():
         notice = SyncNotification(
             platform="curseforge",
             projects_detail_info=projects_detail_info,
-            new_project_ids=new_modids,
+            total_catached_count=len(modids),
         )
         notice.send_to_telegram()
 
@@ -371,7 +374,11 @@ def sync_modrinth_queue():
     if project_ids:
         modrinth_pause_event.set()
         pool, futures = create_tasks_pool(
-            sync_project, project_ids, MAX_WORKERS, "modrinth"
+            # sync_project, project_ids, MAX_WORKERS, "modrinth"
+            sync_project,
+            new_project_ids,
+            MAX_WORKERS,
+            "modrinth",  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
         )
 
         projects_detail_info = []
@@ -391,7 +398,7 @@ def sync_modrinth_queue():
         notice = SyncNotification(
             platform="modrinth",
             projects_detail_info=projects_detail_info,
-            new_project_ids=new_project_ids,
+            total_catached_count=len(project_ids),
         )
         notice.send_to_telegram()
 
