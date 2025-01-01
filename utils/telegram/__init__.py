@@ -1,10 +1,6 @@
 from typing import List, Dict, Union, Sequence
 from pydantic import BaseModel
-# import telegram
 import tenacity
-from datetime import datetime
-# from telegram.error import TelegramError
-# from httpx._exceptions import NetworkError
 from abc import ABC, abstractmethod
 
 from utils.network import request_sync
@@ -12,30 +8,7 @@ from utils import SyncMode
 from config import Config
 from utils.loger import log
 
-# bot: telegram.Bot
 config = Config.load()
-
-
-# def init_bot():
-#     global bot
-#     bot = telegram.Bot(
-#         token=config.bot_token,
-#         base_url=config.bot_api,
-#         request=telegram.request.HTTPXRequest(
-#             proxy=config.telegram_proxy, connection_pool_size=64
-#         ),
-#     )
-#     return bot
-
-
-# @tenacity.retry(
-#     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
-#     wait=tenacity.wait_fixed(1),
-#     stop=tenacity.stop_after_attempt(10),
-# )
-# async def send_message(text: str):
-#     await bot.send_message(chat_id=config.chat_id, text=text)
-#     log.info(f"Message '{text}' sent to telegram.")
 
 
 @tenacity.retry(
