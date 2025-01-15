@@ -46,12 +46,17 @@ def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
         models.append(Mod(**mod))
         modid = mod["id"]
         mod_date[modid]["source_date"] = mod["dateModified"]
-        sync_date = mod_date[modid]["sync_date"]
-        if sync_date == mod["dateModified"]:
+        sync_date: datetime.datetime = mod_date[modid]["sync_date"].replace(tzinfo=None)
+        dateModified_date = datetime.datetime.fromisoformat(
+            mod["dateModified"]
+        ).replace(tzinfo=None)
+        if sync_date.timestamp() == dateModified_date.timestamp():
             log.debug(f"Mod {modid} is not updated, pass!")
         else:
             expired_modids.add(modid)
-            log.debug(f"Mod {modid} is updated {sync_date} -> {mod['dateModified']}!")
+            log.debug(
+                f"Mod {modid} is updated {sync_date.isoformat(timespec='seconds')} -> {dateModified_date.isoformat(timespec='seconds')}!"
+            )
         if len(models) >= 100:
             submit_models(models)
             models.clear()
@@ -70,9 +75,12 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
     for project in info:
         models.append(Project(**project))
         project_id = project["id"]
-        sync_date = project_info[project_id]["sync_date"]
+        sync_date: datetime.datetime = project_info[project_id]["sync_date"].replace(tzinfo=None)
         project_info[project_id]["source_date"] = project["updated"]
-        if sync_date == project["updated"]:
+        updated_date = datetime.datetime.fromisoformat(
+            project["updated"]
+        ).replace(tzinfo=None)
+        if sync_date.timestamp() == updated_date.timestamp():
             if project_info[project_id]["versions"] != project["versions"]:
                 log.debug(
                     f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
@@ -83,7 +91,7 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
         else:
             expired_project_ids.add(project_id)
             log.debug(
-                f"Project {project_id} is updated {sync_date} -> {project['updated']}!"
+                f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
             )
         if len(models) >= 100:
             submit_models(models)
@@ -100,9 +108,7 @@ def fetch_expired_curseforge_data() -> List[int]:
     skip = 0
     while True:
         mods_result: List[Mod] = list(
-            sync_mongo_engine.find(
-                Mod, Mod.found == True, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
-            )
+            sync_mongo_engine.find(Mod, skip=skip, limit=CURSEFORGE_LIMIT_SIZE)
         )
 
         if not mods_result:
@@ -121,9 +127,7 @@ def fetch_expired_modrinth_data() -> List[str]:
     skip = 0
     while True:
         projects_result: List[Project] = list(
-            sync_mongo_engine.find(
-                Project, Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
-            )
+            sync_mongo_engine.find(Project, skip=skip, limit=MODRINTH_LIMIT_SIZE)
         )
         if not projects_result:
             break
@@ -144,9 +148,7 @@ def fetch_all_curseforge_data() -> List[int]:
     result = []
     while True:
         mods_result: List[Mod] = list(
-            sync_mongo_engine.find(
-                Mod, Mod.found == True, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
-            )
+            sync_mongo_engine.find(Mod, skip=skip, limit=CURSEFORGE_LIMIT_SIZE)
         )
 
         if not mods_result:
@@ -163,9 +165,7 @@ def fetch_all_modrinth_data() -> List[str]:
     result = []
     while True:
         projects_result: List[Project] = list(
-            sync_mongo_engine.find(
-                Project, Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
-            )
+            sync_mongo_engine.find(Project, skip=skip, limit=MODRINTH_LIMIT_SIZE)
         )
         if not projects_result:
             break
@@ -194,7 +194,7 @@ def fetch_modrinth_data_by_sync_at():
         projects_result: List[Project] = list(
             sync_mongo_engine.find(
                 Project,
-                # Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
+                # skip=skip, limit=MODRINTH_LIMIT_SIZE
                 query,
                 skip=skip,
                 limit=MODRINTH_LIMIT_SIZE,
@@ -216,7 +216,7 @@ def check_modrinth_project_ids_available():
     """
     available_project_ids = []
     project_ids = fetch_modrinth_project_ids_queue()
-    log.info(f'Fetched {len(project_ids)} modrinth project ids from queue')
+    log.info(f"Fetched {len(project_ids)} modrinth project ids from queue")
 
     for i in range(0, len(project_ids), MODRINTH_LIMIT_SIZE):
         chunk = project_ids[i : i + MODRINTH_LIMIT_SIZE]
@@ -236,7 +236,7 @@ def check_modrinth_version_ids_available():
     """
     available_project_ids = []
     version_ids = fetch_modrinth_version_ids_queue()
-    log.info(f'Fetched {len(version_ids)} modrinth version ids from queue')
+    log.info(f"Fetched {len(version_ids)} modrinth version ids from queue")
 
     for i in range(0, len(version_ids), MODRINTH_LIMIT_SIZE):
         chunk = version_ids[i : i + MODRINTH_LIMIT_SIZE]
@@ -254,7 +254,7 @@ def check_modrinth_hashes_available():
     algorithms = ["sha1", "sha256"]
     for algorithm in algorithms:
         hashes = fetch_modrinth_hashes_queue(algorithm)
-        log.info(f'Fetched {len(hashes)} modrinth hashes from queue')
+        log.info(f"Fetched {len(hashes)} modrinth hashes from queue")
 
         for i in range(0, len(hashes), MODRINTH_LIMIT_SIZE):
             chunk = hashes[i : i + MODRINTH_LIMIT_SIZE]
@@ -270,7 +270,7 @@ def check_curseforge_modids_available():
     """
     available_modids = []
     modids = fetch_curseforge_modids_queue()
-    log.info(f'Fetched {len(modids)} curseforge modids from queue')
+    log.info(f"Fetched {len(modids)} curseforge modids from queue")
 
     for i in range(0, len(modids), CURSEFORGE_LIMIT_SIZE):
         chunk = modids[i : i + CURSEFORGE_LIMIT_SIZE]
@@ -286,7 +286,7 @@ def check_curseforge_fileids_available():
     """
     available_modids = []
     fileids = fetch_curseforge_fileids_queue()
-    log.info(f'Fetched {len(fileids)} curseforge fileids from queue')
+    log.info(f"Fetched {len(fileids)} curseforge fileids from queue")
 
     for i in range(0, len(fileids), CURSEFORGE_LIMIT_SIZE):
         chunk = fileids[i : i + CURSEFORGE_LIMIT_SIZE]
@@ -302,7 +302,7 @@ def check_curseforge_fingerprints_available():
     """
     available_modids = []
     fingerprints = fetch_curseforge_fingerprints_queue()
-    log.info(f'Fetched {len(fingerprints)} curseforge fingerprints from queue')
+    log.info(f"Fetched {len(fingerprints)} curseforge fingerprints from queue")
 
     for i in range(0, len(fingerprints), CURSEFORGE_LIMIT_SIZE):
         chunk = fingerprints[i : i + CURSEFORGE_LIMIT_SIZE]
@@ -312,18 +312,24 @@ def check_curseforge_fingerprints_available():
         )
     return list(set(available_modids))
 
+
 def check_new_modids(modids: List[int]) -> List[int]:
     """
     返回对应的 modids
     """
-    find_result = raw_mongo_client["curseforge_mods"].find({"_id": {"$in": modids}}, {"_id": 1})
+    find_result = raw_mongo_client["curseforge_mods"].find(
+        {"_id": {"$in": modids}}, {"_id": 1}
+    )
     found_modids = [mod["_id"] for mod in find_result]
     return list(set(modids) - set(found_modids))
+
 
 def check_new_project_ids(project_ids: List[str]) -> List[str]:
     """
     返回对应的 project_ids
     """
-    find_result = raw_mongo_client["modrinth_projects"].find({"_id": {"$in": project_ids}}, {"_id": 1})
+    find_result = raw_mongo_client["modrinth_projects"].find(
+        {"_id": {"$in": project_ids}}, {"_id": 1}
+    )
     found_project_ids = [project["_id"] for project in find_result]
     return list(set(project_ids) - set(found_project_ids))

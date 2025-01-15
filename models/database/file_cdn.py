@@ -16,7 +16,3 @@ class File(Model):
     model_config = {
         "collection": "file_cdn_files",
     }
-
-    # @field_serializer("mtime")
-    # def serialize_sync_date(self, value: datetime, _info):
-    #     return value.strftime("%Y-%m-%dT%H:%M:%SZ")
