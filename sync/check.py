@@ -87,7 +87,7 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
         else:
             expired_project_ids.add(project_id)
             log.debug(
-                f"Project {project_id} is updated {sync_date.isoformat(timespec="seconds")} -> {updated_date.isoformat(timespec="seconds")}!"
+                f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
             )
         if len(models) >= 100:
             submit_models(models)
