@@ -141,9 +141,9 @@ def refresh_with_modify_date():
     #     f"All expired data sync finished, total: {total_expired_count}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
     # )
 
-    notification.send_to_telegram()
-
-    log.info("All Message sent to telegram.")
+    if config.telegram_bot:
+        notification.send_to_telegram()
+        log.info("All Message sent to telegram.")
 
 
 def sync_modrinth_full():
@@ -341,14 +341,16 @@ def sync_curseforge_queue():
         clear_curseforge_all_queues()
         log.info("CurseForge queue cleared.")
 
-        notice = SyncNotification(
-            platform="curseforge",
-            projects_detail_info=projects_detail_info,
-            total_catached_count=len(modids),
-        )
-        notice.send_to_telegram()
+        if config.telegram_bot:
+            notice = SyncNotification(
+                platform="curseforge",
+                projects_detail_info=projects_detail_info,
+                total_catached_count=len(modids),
+            )
 
-        log.info("All Message sent to telegram.")
+            notice.send_to_telegram()
+
+            log.info("All Message sent to telegram.")
 
 
 def sync_modrinth_queue():
@@ -395,11 +397,12 @@ def sync_modrinth_queue():
         clear_modrinth_all_queues()
         log.info("Modrinth queue cleared.")
 
-        notice = SyncNotification(
-            platform="modrinth",
-            projects_detail_info=projects_detail_info,
-            total_catached_count=len(project_ids),
-        )
-        notice.send_to_telegram()
+        if config.telegram_bot:
+            notice = SyncNotification(
+                platform="modrinth",
+                projects_detail_info=projects_detail_info,
+                total_catached_count=len(project_ids),
+            )
+            notice.send_to_telegram()
 
-        log.info("All Message sent to telegram.")
+            log.info("All Message sent to telegram.")

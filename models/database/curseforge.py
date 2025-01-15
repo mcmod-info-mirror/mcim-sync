@@ -13,7 +13,7 @@ class FileSortableGameVersions(BaseModel):
     gameVersionName: Optional[str] = None
     gameVersionPadded: Optional[str] = None
     gameVersion: Optional[str] = None
-    gameVersionReleaseDate: Optional[str] = None
+    gameVersionReleaseDate: Optional[datetime] = None
     gameVersionTypeId: Optional[int] = None
 
 
@@ -78,7 +78,7 @@ class Category(BaseModel):
     slug: Optional[str] = None
     url: Optional[str] = None
     iconUrl: Optional[str] = None
-    dateModified: Optional[str] = None
+    dateModified: Optional[datetime] = None
     isClass: Optional[bool] = None
     classId: Optional[int] = None
     parentCategoryId: Optional[int] = None
@@ -195,15 +195,8 @@ class File(Model):
     file_cdn_cached: bool = False
     sha1: Optional[str] = None
     md5: Optional[str] = None
-    found: bool = True
-    sync_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @field_serializer("sync_at", "earlyAccessEndDate", "fileDate")
-    def serialize_sync_Date(self, value: Optional[datetime], _info):
-        if isinstance(value, datetime):
-            return value.strftime("%Y-%m-%dT%H:%M:%SZ")
-        else:
-            return value
+    sync_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
         "collection": "curseforge_files",
@@ -278,9 +271,9 @@ class Mod(Model):
     mainFileId: Optional[int] = None
     latestFiles: Optional[List[FileInfo]] = None
     latestFilesIndexes: Optional[List[FileIndex]] = None
-    dateCreated: Optional[str] = None
-    dateModified: Optional[str] = None
-    dateReleased: Optional[str] = None
+    dateCreated: Optional[datetime] = None
+    dateModified: Optional[datetime] = None
+    dateReleased: Optional[datetime] = None
     allowModDistribution: Optional[bool] = None
     gamePopularityRank: Optional[int] = None
     isAvailable: Optional[bool] = None
@@ -288,12 +281,8 @@ class Mod(Model):
     rating: Optional[int] = None
 
     translated_summary: Optional[str] = None
-    found: bool = True
-    sync_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @field_serializer("sync_at")
-    def serialize_sync_Date(self, value: datetime, _info):
-        return value.strftime("%Y-%m-%dT%H:%M:%SZ")
+    sync_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
         "collection": "curseforge_mods",
@@ -316,13 +305,8 @@ class Fingerprint(Model):
     file: FileInfo
     latestFiles: List[FileInfo]
 
-    found: bool = True
     sync_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
         "collection": "curseforge_fingerprints",
     }
-
-    @field_serializer("sync_at")
-    def serialize_sync_Date(self, value: datetime, _info):
-        return value.strftime("%Y-%m-%dT%H:%M:%SZ")
