@@ -45,6 +45,7 @@ def append_model_from_files_res(
         # for file_cdn
         if config.file_cdn:
             if (
+                need_to_cache,
                 file_model.sha1 is not None
                 and file_model.gameId == 432
                 and file_model.fileLength <= MAX_LENGTH
