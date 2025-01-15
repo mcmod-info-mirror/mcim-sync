@@ -46,10 +46,10 @@ def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
         models.append(Mod(**mod))
         modid = mod["id"]
         mod_date[modid]["source_date"] = mod["dateModified"]
-        sync_date: datetime.datetime = mod_date[modid]["sync_date"]
+        sync_date: datetime.datetime = mod_date[modid]["sync_date"].replace(tzinfo=None)
         dateModified_date = datetime.datetime.fromisoformat(
             mod["dateModified"]
-        )
+        ).replace(tzinfo=None)
         if sync_date.timestamp() == dateModified_date.timestamp():
             log.debug(f"Mod {modid} is not updated, pass!")
         else:
@@ -75,11 +75,11 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
     for project in info:
         models.append(Project(**project))
         project_id = project["id"]
-        sync_date: datetime.datetime = project_info[project_id]["sync_date"]
+        sync_date: datetime.datetime = project_info[project_id]["sync_date"].replace(tzinfo=None)
         project_info[project_id]["source_date"] = project["updated"]
         updated_date = datetime.datetime.fromisoformat(
             project["updated"]
-        )
+        ).replace(tzinfo=None)
         if sync_date.timestamp() == updated_date.timestamp():
             if project_info[project_id]["versions"] != project["versions"]:
                 log.debug(
