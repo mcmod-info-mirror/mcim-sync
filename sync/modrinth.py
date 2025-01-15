@@ -43,14 +43,14 @@ def sync_project_all_version(
                 res = request_sync(f"{API}/project/{project_id}").json()
             except ResponseCodeException as e:
                 if e.status_code == 404:
-                    models.append(Project(found=False, id=project_id, slug=project_id))
+                    models.append(Project(id=project_id, slug=project_id))
                     return
             slug = res["slug"]
     try:
         res = request_sync(f"{API}/project/{project_id}/version").json()
     except ResponseCodeException as e:
         if e.status_code == 404:
-            models.append(Project(found=False, id=project_id, slug=project_id))
+            models.append(Project(id=project_id, slug=project_id))
             return
     except Exception as e:
         log.error(f"Failed to sync project {project_id} versions info: {e}")
@@ -61,7 +61,7 @@ def sync_project_all_version(
         for file in version["files"]:
             file["version_id"] = version["id"]
             file["project_id"] = version["project_id"]
-            file_model = File(found=True, slug=slug, **file)
+            file_model = File(slug=slug, **file)
             if (
                 file_model.size <= MAX_LENGTH
                 and file_model.filename
@@ -81,7 +81,7 @@ def sync_project_all_version(
             if len(models) >= 100:
                 submit_models(models)
                 models = []
-        models.append(Version(found=True, slug=slug, **version))
+        models.append(Version(slug=slug, **version))
     submit_models(models)
     # delete not found versions
     removed_count = mongodb_engine.remove(
@@ -100,19 +100,19 @@ def sync_project(project_id: str) -> ProjectDetail:
     models = []
     try:
         res = request_sync(f"{API}/project/{project_id}").json()
-        models.append(Project(found=True, **res))
+        models.append(Project(**res))
         # db_project = mongodb_engine.find_one(Project, Project.id == project_id)
         # if db_project is not None:
         #     # check updated
         #     if db_project.updated != res["updated"]:
-        #         models.append(Project(found=True, **res))
+        #         models.append(Project(**res))
         #         sync_project_all_version(project_id, slug=res["slug"])
         #     else:
         #         return
         total_count = sync_project_all_version(project_id, slug=res["slug"])
     except ResponseCodeException as e:
         if e.status_code == 404:
-            models = [Project(found=False, id=project_id, slug=project_id)]
+            models = [Project(id=project_id, slug=project_id)]
     except Exception as e:
         log.error(f"Failed to sync project {project_id} info: {e}")
         return

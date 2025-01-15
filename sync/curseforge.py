@@ -33,14 +33,13 @@ def append_model_from_files_res(
                 file["sha1"] = _hash["value"]
             elif _hash["algo"] == 2:
                 file["md5"] = _hash["value"]
-        file_model = File(found=True, need_to_cache=need_to_cache, **file)
+        file_model = File(need_to_cache=need_to_cache, **file)
         models.append(file_model)
         models.append(
             Fingerprint(
                 id=file["fileFingerprint"],
                 file=file,
                 latestFiles=latestFiles,
-                found=True,
             )
         )
         # for file_cdn
@@ -127,7 +126,7 @@ def sync_mod(modId: int) -> ProjectDetail:
     models: List[Union[File, Mod]] = []
     try:
         res = request_sync(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
-        models.append(Mod(found=True, **res))
+        models.append(Mod(**res))
         # mod = mongodb_engine.find_one(Mod, Mod.id == modId)
         # if mod is not None:
         #     if mod.dateReleased == models[0].dateReleased:

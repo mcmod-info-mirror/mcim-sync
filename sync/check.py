@@ -101,7 +101,7 @@ def fetch_expired_curseforge_data() -> List[int]:
     while True:
         mods_result: List[Mod] = list(
             sync_mongo_engine.find(
-                Mod, Mod.found == True, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
+                Mod, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
             )
         )
 
@@ -122,7 +122,7 @@ def fetch_expired_modrinth_data() -> List[str]:
     while True:
         projects_result: List[Project] = list(
             sync_mongo_engine.find(
-                Project, Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
+                Project, skip=skip, limit=MODRINTH_LIMIT_SIZE
             )
         )
         if not projects_result:
@@ -145,7 +145,7 @@ def fetch_all_curseforge_data() -> List[int]:
     while True:
         mods_result: List[Mod] = list(
             sync_mongo_engine.find(
-                Mod, Mod.found == True, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
+                Mod, skip=skip, limit=CURSEFORGE_LIMIT_SIZE
             )
         )
 
@@ -164,7 +164,7 @@ def fetch_all_modrinth_data() -> List[str]:
     while True:
         projects_result: List[Project] = list(
             sync_mongo_engine.find(
-                Project, Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
+                Project, skip=skip, limit=MODRINTH_LIMIT_SIZE
             )
         )
         if not projects_result:
@@ -194,7 +194,7 @@ def fetch_modrinth_data_by_sync_at():
         projects_result: List[Project] = list(
             sync_mongo_engine.find(
                 Project,
-                # Project.found == True, skip=skip, limit=MODRINTH_LIMIT_SIZE
+                # skip=skip, limit=MODRINTH_LIMIT_SIZE
                 query,
                 skip=skip,
                 limit=MODRINTH_LIMIT_SIZE,
