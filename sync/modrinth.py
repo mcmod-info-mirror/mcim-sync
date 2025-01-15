@@ -32,6 +32,7 @@ MAX_LENGTH = config.max_file_size
 def sync_project_all_version(
     project_id: str,
     slug: Optional[str] = None,
+    need_to_cache: bool = True,
 ) -> List[Union[Project, File, Version]]:
     models = []
     if not slug:
@@ -43,14 +44,14 @@ def sync_project_all_version(
                 res = request_sync(f"{API}/project/{project_id}").json()
             except ResponseCodeException as e:
                 if e.status_code == 404:
-                    models.append(Project(id=project_id, slug=project_id))
+                    # models.append(Project(id=project_id, slug=project_id))
                     return
             slug = res["slug"]
     try:
         res = request_sync(f"{API}/project/{project_id}/version").json()
     except ResponseCodeException as e:
         if e.status_code == 404:
-            models.append(Project(id=project_id, slug=project_id))
+            # models.append(Project(id=project_id, slug=project_id))
             return
     except Exception as e:
         log.error(f"Failed to sync project {project_id} versions info: {e}")
@@ -62,22 +63,24 @@ def sync_project_all_version(
             file["version_id"] = version["id"]
             file["project_id"] = version["project_id"]
             file_model = File(slug=slug, **file)
-            if (
-                file_model.size <= MAX_LENGTH
-                and file_model.filename
-                and file_model.url
-                and file_model.hashes.sha1
-            ):
-                models.append(
-                    FileCDN(
-                        url=file_model.url,
-                        sha1=file_model.hashes.sha1,
-                        size=file_model.size,
-                        mtime=int(time.time()),
-                        path=file_model.hashes.sha1,
-                    )
-                )
             models.append(file_model)
+            if config.file_cdn:
+                if (
+                    need_to_cache,
+                    file_model.size <= MAX_LENGTH
+                    and file_model.filename
+                    and file_model.url
+                    and file_model.hashes.sha1,
+                ):
+                    models.append(
+                        FileCDN(
+                            url=file_model.url,
+                            sha1=file_model.hashes.sha1,
+                            size=file_model.size,
+                            mtime=int(time.time()),
+                            path=file_model.hashes.sha1,
+                        )
+                    )
             if len(models) >= 100:
                 submit_models(models)
                 models = []
@@ -96,11 +99,13 @@ def sync_project_all_version(
 
     return total_count
 
+
 def sync_project(project_id: str) -> ProjectDetail:
     models = []
     try:
         res = request_sync(f"{API}/project/{project_id}").json()
-        models.append(Project(**res))
+        project_model = Project(**res)
+        models.append(project_model)
         # db_project = mongodb_engine.find_one(Project, Project.id == project_id)
         # if db_project is not None:
         #     # check updated
@@ -109,10 +114,15 @@ def sync_project(project_id: str) -> ProjectDetail:
         #         sync_project_all_version(project_id, slug=res["slug"])
         #     else:
         #         return
-        total_count = sync_project_all_version(project_id, slug=res["slug"])
+        total_count = sync_project_all_version(
+            project_id,
+            slug=res["slug"],
+            need_to_cache=project_model.project_type == "mod",
+        )
     except ResponseCodeException as e:
         if e.status_code == 404:
-            models = [Project(id=project_id, slug=project_id)]
+            # models.append(Project(id=project_id, slug=project_id))
+            log.error(f"Project {project_id} not found!")
     except Exception as e:
         log.error(f"Failed to sync project {project_id} info: {e}")
         return
