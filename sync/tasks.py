@@ -89,11 +89,10 @@ def create_tasks_pool(sync_function, data, max_workers, thread_name_prefix):
 
 def refresh_curseforge_with_modify_date():
     log.info("Start fetching expired CurseForge data.")
-    notification = CurseforgeRefreshNotification()
 
     if SYNC_CURSEFORGE:
         curseforge_expired_data = fetch_expired_curseforge_data()
-        notification.refreshed_count = len(curseforge_expired_data)
+        notification = CurseforgeRefreshNotification(refreshed_count=len(curseforge_expired_data))
         log.info(f"Curseforge expired data fetched: {notification.refreshed_count}")
         log.info(f"Start syncing CurseForge expired data...")
 
@@ -117,11 +116,10 @@ def refresh_curseforge_with_modify_date():
 
 def refresh_modrinth_with_modify_date():
     log.info("Start fetching expired Modrinth data.")
-    notification = ModrinthRefreshNotification()
 
     if SYNC_MODRINTH:
         modrinth_expired_data = fetch_expired_modrinth_data()
-        notification.refreshed_count = len(modrinth_expired_data)
+        notification = ModrinthRefreshNotification(refreshed_count=len(modrinth_expired_data))
         log.info(f"Modrinth expired data fetched: {notification.refreshed_count}")
         log.info(f"Start syncing Modrinth expired data...")
 

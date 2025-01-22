@@ -24,21 +24,25 @@ def send_message_sync(text: str):
             "chat_id": config.chat_id,
             "text": text,
             # TODO: 支持 Markdown
-            # "parse_mode": "Markdown", 
+            # "parse_mode": "Markdown",
         },
     )
     log.info(f"Message '{text}' sent to telegram.")
+
 
 class Notification(ABC):
     @abstractmethod
     def send_to_telegram(self):
         pass
 
+
 class StatisticsNotification(Notification):
     @classmethod
     def send_to_telegram(self):
         mcim_stats = request_sync("https://mod.mcimirror.top/statistics").json()
-        files_stats = request_sync("https://files.mcimirror.top/api/stats/center").json()
+        files_stats = request_sync(
+            "https://files.mcimirror.top/api/stats/center"
+        ).json()
         mcim_message = (
             "MCIM API 已缓存：\n"
             f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个，指纹 {mcim_stats['curseforge']['fingerprint']} 个\n"
@@ -85,24 +89,26 @@ class StatisticsNotification(Notification):
         send_message_sync(final_message)
         return final_message
 
+
 class CurseforgeRefreshNotification(Notification):
-    def __init__(self, count: int):
-        self.refreshed_count: int = count
+    refreshed_count: int
+
+    def __init__(self, refreshed_count: int):
+        self.refreshed_count = refreshed_count
 
     def send_to_telegram(self):
-        sync_message = (
-            f"Curseforge 缓存刷新完成，共刷新 {self.refreshed_count} 个模组"
-        )
+        sync_message = f"Curseforge 缓存刷新完成，共刷新 {self.refreshed_count} 个模组"
         send_message_sync(sync_message)
 
+
 class ModrinthRefreshNotification(Notification):
-    def __init__(self, count: int):
-        self.refreshed_count: int = count
+    refreshed_count: int
+
+    def __init__(self, refreshed_count: int):
+        self.refreshed_count = refreshed_count
 
     def send_to_telegram(self):
-        sync_message = (
-            f"Modrinth 缓存刷新完成，共刷新 {self.refreshed_count} 个模组"
-        )
+        sync_message = f"Modrinth 缓存刷新完成，共刷新 {self.refreshed_count} 个模组"
         send_message_sync(sync_message)
 
 
@@ -113,18 +119,29 @@ class ProjectDetail(BaseModel):
 
 
 class SyncNotification(Notification):
-    def __init__(self, platform: str, total_catached_count: int, projects_detail_info: List[ProjectDetail]):
-        self.platform: str = platform
-        self.total_catached_count: int = total_catached_count
-        self.projects_detail_info: List[ProjectDetail] = projects_detail_info
+    platform: str
+    total_catached_count: int
+    projects_detail_info: List[ProjectDetail]
+
+    def __init__(
+        self,
+        platform: str,
+        total_catached_count: int,
+        projects_detail_info: List[ProjectDetail],
+    ):
+        self.platform = platform
+        self.total_catached_count = total_catached_count
+        self.projects_detail_info = projects_detail_info
 
     def send_to_telegram(self):
-        message = f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据" + \
-                    f'有 {len(self.projects_detail_info)} 个模组是新捕获到的' + \
-                    f'以下格式为 模组名(模组ID): 版本数量'
+        message = (
+            f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据"
+            + f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
+            + f"以下格式为 模组名(模组ID): 版本数量"
+        )
         for project in self.projects_detail_info:
-            if len(message) > 4000: # Telegram 限制消息长度 4096 字符
+            if len(message) > 4000:  # Telegram 限制消息长度 4096 字符
                 break
             message += f"\n{project.name}({project.id}): {project.version_count}"
-            
+
         send_message_sync(message)
