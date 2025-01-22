@@ -50,7 +50,7 @@ def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
         dateModified_date = datetime.datetime.fromisoformat(
             mod["dateModified"]
         ).replace(tzinfo=None)
-        if sync_date.timestamp() == dateModified_date.timestamp():
+        if int(sync_date.timestamp()) == int(dateModified_date.timestamp()):
             log.debug(f"Mod {modid} is not updated, pass!")
         else:
             expired_modids.add(modid)
@@ -80,7 +80,7 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
         updated_date = datetime.datetime.fromisoformat(
             project["updated"]
         ).replace(tzinfo=None)
-        if sync_date.timestamp() == updated_date.timestamp():
+        if int(sync_date.timestamp()) == int(updated_date.timestamp()):
             if project_info[project_id]["versions"] != project["versions"]:
                 log.debug(
                     f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
