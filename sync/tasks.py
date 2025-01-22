@@ -3,7 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils.loger import log
-from utils.telegram import RefreshNotification, SyncNotification, ProjectDetail
+from utils.telegram import SyncNotification, CurseforgeRefreshNotification, ModrinthRefreshNotification, StatisticsNotification
 from utils import SyncMode
 from config import Config
 from sync.curseforge import sync_mod, sync_mod_all_files
@@ -87,63 +87,60 @@ def create_tasks_pool(sync_function, data, max_workers, thread_name_prefix):
     return thread_pool, futures
 
 
-def refresh_with_modify_date():
-    log.info("Start fetching expired data.")
-    notification = RefreshNotification()
+def refresh_curseforge_with_modify_date():
+    log.info("Start fetching expired CurseForge data.")
+    notification = CurseforgeRefreshNotification()
 
-    # fetch all expired data
-    curseforge_expired_data = []
-    modrinth_expired_data = []
     if SYNC_CURSEFORGE:
         curseforge_expired_data = fetch_expired_curseforge_data()
-        notification.curseforge_refreshed_count = len(curseforge_expired_data)
-        log.info(
-            f"Curseforge expired data totally fetched: {notification.curseforge_refreshed_count}"
+        notification.refreshed_count = len(curseforge_expired_data)
+        log.info(f"Curseforge expired data fetched: {notification.refreshed_count}")
+        log.info(f"Start syncing CurseForge expired data...")
+
+        curseforge_pause_event.set()
+        curseforge_pool, curseforge_futures = create_tasks_pool(
+            sync_mod_all_files,
+            curseforge_expired_data,
+            MAX_WORKERS,
+            "curseforge",
         )
+
+        for future in as_completed(curseforge_futures):
+            pass
+        else:
+            curseforge_pool.shutdown()
+
+        if config.telegram_bot:
+            notification.send_to_telegram()
+            log.info("CurseForge refresh message sent to telegram.")
+
+
+def refresh_modrinth_with_modify_date():
+    log.info("Start fetching expired Modrinth data.")
+    notification = ModrinthRefreshNotification()
+
     if SYNC_MODRINTH:
         modrinth_expired_data = fetch_expired_modrinth_data()
-        notification.modrinth_refreshed_count = len(modrinth_expired_data)
-        log.info(
-            f"Modrinth expired data totally fetched: {notification.modrinth_refreshed_count}"
+        notification.refreshed_count = len(modrinth_expired_data)
+        log.info(f"Modrinth expired data fetched: {notification.refreshed_count}")
+        log.info(f"Start syncing Modrinth expired data...")
+
+        modrinth_pause_event.set()
+        modrinth_pool, modrinth_futures = create_tasks_pool(
+            sync_project_all_version,
+            modrinth_expired_data,
+            MAX_WORKERS,
+            "modrinth",
         )
 
-    notification.sync_mode = SyncMode.MODIFY_DATE
-    log.info(
-        f"All expired data fetched \
-            curseforge: {notification.curseforge_refreshed_count}, \
-            modrinth: {notification.modrinth_refreshed_count}, \
-            start syncing..."
-    )
+        for future in as_completed(modrinth_futures):
+            pass
+        else:
+            modrinth_pool.shutdown()
 
-    # 允许请求
-    curseforge_pause_event.set()
-    modrinth_pause_event.set()
-
-    curseforge_pool, curseforge_futures = create_tasks_pool(
-        sync_mod_all_files, curseforge_expired_data, MAX_WORKERS, "curseforge"
-    )
-    modrinth_pool, modrinth_futures = create_tasks_pool(
-        sync_project_all_version, modrinth_expired_data, MAX_WORKERS, "modrinth"
-    )
-
-    log.info(
-        f"All {len(curseforge_futures) + len(modrinth_futures)} tasks submitted, waiting for completion..."
-    )
-
-    for future in as_completed(curseforge_futures + modrinth_futures):
-        # 不需要返回值
-        pass
-    else:
-        curseforge_pool.shutdown()
-        modrinth_pool.shutdown()
-
-    # log.info(
-    #     f"All expired data sync finished, total: {total_expired_count}. Next run at: {sync_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-    # )
-
-    if config.telegram_bot:
-        notification.send_to_telegram()
-        log.info("All Message sent to telegram.")
+        if config.telegram_bot:
+            notification.send_to_telegram()
+            log.info("Modrinth refresh message sent to telegram.")
 
 
 def sync_modrinth_full():
@@ -406,3 +403,10 @@ def sync_modrinth_queue():
             notice.send_to_telegram()
 
             log.info("All Message sent to telegram.")
+
+
+def send_statistics_to_telegram():
+    log.info("Start fetching statistics to telegram.")
+    message = StatisticsNotification.send_to_telegram()
+    log.info("Statistics message sent to telegram.")
+    log.info(f"Statistics message: {message}")

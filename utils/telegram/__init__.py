@@ -34,44 +34,11 @@ class Notification(ABC):
     def send_to_telegram(self):
         pass
 
-
-class RefreshNotification(Notification):
-    def __init__(self, sync_mode: SyncMode = SyncMode.MODIFY_DATE):
-        self.modrinth_refreshed_count: int = 0
-        self.curseforge_refreshed_count: int = 0
-        self.sync_mode: SyncMode = sync_mode
-
+class StatisticsNotification(Notification):
+    @classmethod
     def send_to_telegram(self):
-        sync_message = (
-            f"本次同步为{self.sync_mode.value}同步\n"
-            f"CurseForge: {self.curseforge_refreshed_count} 个 Mod 的数据已更新\n"
-            f"Modrinth: {self.modrinth_refreshed_count} 个 Mod 的数据已更新"
-        )
-        """
-        https://mod.mcimirror.top/statistics
-        {
-            "curseforge": {
-                "mod": 75613,
-                "file": 1265312,
-                "fingerprint": 1264259
-            },
-            "modrinth": {
-                "project": 42832,
-                "version": 415467,
-                "file": 458877
-            },
-            "file_cdn": {
-                "file": 924573
-            }
-        }
-        """
         mcim_stats = request_sync("https://mod.mcimirror.top/statistics").json()
-        """
-        MCIM 已缓存：
-        Curseforge 模组 75613 个，文件 1265312 个，指纹 1264259 个
-        Modrinth 项目 42832 个，版本 415467 个，文件 458877 个
-        CDN 文件 924573 个
-        """
+        files_stats = request_sync("https://files.mcimirror.top/api/stats/center").json()
         mcim_message = (
             "MCIM API 已缓存：\n"
             f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个，指纹 {mcim_stats['curseforge']['fingerprint']} 个\n"
@@ -114,8 +81,29 @@ class RefreshNotification(Notification):
             f"总文件数：{files_stats['totalFiles']} 个\n"
             f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
         )
-        final_message = f"{sync_message}\n\n{mcim_message}\n\n{files_message}"
+        final_message = f"{mcim_message}\n\n{files_message}"
         send_message_sync(final_message)
+        return final_message
+
+class CurseforgeRefreshNotification(Notification):
+    def __init__(self, count: int):
+        self.refreshed_count: int = count
+
+    def send_to_telegram(self):
+        sync_message = (
+            f"Curseforge 缓存刷新完成，共刷新 {self.refreshed_count} 个模组"
+        )
+        send_message_sync(sync_message)
+
+class ModrinthRefreshNotification(Notification):
+    def __init__(self, count: int):
+        self.refreshed_count: int = count
+
+    def send_to_telegram(self):
+        sync_message = (
+            f"Modrinth 缓存刷新完成，共刷新 {self.refreshed_count} 个模组"
+        )
+        send_message_sync(sync_message)
 
 
 class ProjectDetail(BaseModel):
@@ -132,10 +120,11 @@ class SyncNotification(Notification):
 
     def send_to_telegram(self):
         message = f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据" + \
-                    f'有 {len(self.projects_detail_info)} 个模组是新捕获到的'
+                    f'有 {len(self.projects_detail_info)} 个模组是新捕获到的' + \
+                    f'以下格式为 模组名(模组ID): 版本数量'
         for project in self.projects_detail_info:
             if len(message) > 4000: # Telegram 限制消息长度 4096 字符
                 break
-            message += f"\n{project.name} (ID: {project.id}) 共有 {project.version_count} 个版本"
+            message += f"\n{project.name}({project.id}): {project.version_count}"
             
         send_message_sync(message)
