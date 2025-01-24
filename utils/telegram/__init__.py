@@ -36,6 +36,7 @@ def send_message_sync(text: str, parse_mode: str = None) -> int:
         f"{config.bot_api}{config.bot_token}/sendMessage",
         method="POST",
         json=data,
+        ignore_status_code=True,
     ).json()
     if result["ok"]:
         log.info(f"Message '{text}' sent to telegram, message_id: {result['result']['message_id']}")
@@ -57,6 +58,7 @@ def pin_message(message_id: int):
         f"{config.bot_api}{config.bot_token}/pinChatMessage",
         method="POST",
         json=data,
+        ignore_status_code=True,
     ).json()
     if result["ok"]:
         log.info(f"Message {message_id} pinned to telegram")
