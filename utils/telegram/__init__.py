@@ -11,6 +11,14 @@ from utils.loger import log
 config = Config.load()
 
 
+def escape_markdown(text: str) -> str:
+    """
+    转义 Telegram MarkdownV2 特殊字符
+    """
+    special_chars = r'_*[]()~`>#+-=|{}.!'
+    return ''.join(f'\\{c}' if c in special_chars else c for c in text)
+
+
 @tenacity.retry(
     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
     wait=tenacity.wait_fixed(1),
@@ -31,7 +39,7 @@ def send_message_sync(text: str, parse_mode: str = None) -> int:
     ).json()
     if result["ok"]:
         log.info(f"Message '{text}' sent to telegram, message_id: {result['result']['message_id']}")
-        return data["result"]['message_id']
+        return result["result"]['message_id']
     else:
         raise Exception(f"Telegram API error: {result}")
 
@@ -65,25 +73,7 @@ class Notification(ABC):
 
 
 def make_blockquote(lines: List[str], prefix: str = ">") -> str:
-    return "\n".join([f"{prefix}{line}" for line in lines])
-
-
-def make_expandable_blockquote(lines: List[str], visible_lines: int = 5):
-    if len(lines) >= visible_lines:
-        # 前 visible_lines 行开头是 > 的引用块
-        # visible_lines + 1 是 **>
-        # 后续是 >
-        # 最后一行是 >text||
-        return (
-            make_blockquote(lines[:visible_lines])
-            + make_blockquote(lines[visible_lines : visible_lines + 1], prefix="**>")
-            + make_blockquote(lines[visible_lines + 1 :], prefix=">")
-            + make_blockquote(lines[visible_lines + 1 :])
-            + "||"
-        )
-    else:
-        make_blockquote(lines)
-
+    return "**" + "\n".join([f"{prefix}{escape_markdown(line)}" for line in lines]) + "||"
 
 class StatisticsNotification(Notification):
     @classmethod
@@ -174,6 +164,6 @@ class SyncNotification(Notification):
                     f"{project.name}({project.id}): {project.version_count}"
                 )
 
-            message += make_expandable_blockquote(mod_messages)
+            message += make_blockquote(mod_messages)
 
         message_id = send_message_sync(message, parse_mode="MarkdownV2")
