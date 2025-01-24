@@ -41,7 +41,7 @@ def send_message_sync(text: str, parse_mode: str = None) -> int:
         log.info(f"Message '{text}' sent to telegram, message_id: {result['result']['message_id']}")
         return result["result"]['message_id']
     else:
-        raise Exception(f"Telegram API error: {result}")
+        raise Exception(f"Telegram API error: {result}, original message: {text}, parse_mode: {parse_mode}")
 
 @tenacity.retry(
     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
@@ -63,7 +63,7 @@ def pin_message(message_id: int):
         return True
     else:
         log.error(f"Telegram API error: {result}")
-        raise Exception(f"Telegram API error: {result}")
+        raise Exception(f"Telegram API error: {result}, original message_id: {message_id}")
 
 
 class Notification(ABC):
