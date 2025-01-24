@@ -16,24 +16,73 @@ config = Config.load()
     wait=tenacity.wait_fixed(1),
     stop=tenacity.stop_after_attempt(10),
 )
-def send_message_sync(text: str):
-    request_sync(
+def send_message_sync(text: str, parse_mode: str = None) -> int:
+    data = {
+        "chat_id": config.chat_id,
+        "text": text,
+        # TODO: 支持 Markdown
+    }
+    if parse_mode:
+        data["parse_mode"] = parse_mode
+    result = request_sync(
         f"{config.bot_api}{config.bot_token}/sendMessage",
         method="POST",
-        json={
-            "chat_id": config.chat_id,
-            "text": text,
-            # TODO: 支持 Markdown
-            # "parse_mode": "Markdown",
-        },
-    )
-    log.info(f"Message '{text}' sent to telegram.")
+        json=data,
+    ).json()
+    if result["ok"]:
+        log.info(f"Message '{text}' sent to telegram, message_id: {result['result']['message_id']}")
+        return data["result"]['message_id']
+    else:
+        raise Exception(f"Telegram API error: {result}")
+
+@tenacity.retry(
+    # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
+    wait=tenacity.wait_fixed(1),
+    stop=tenacity.stop_after_attempt(10),
+)
+def pin_message(message_id: int):
+    data = {
+        "chat_id": config.chat_id,
+        "message_id": message_id,
+    }
+    result = request_sync(
+        f"{config.bot_api}{config.bot_token}/pinChatMessage",
+        method="POST",
+        json=data,
+    ).json()
+    if result["ok"]:
+        log.info(f"Message {message_id} pinned to telegram")
+        return True
+    else:
+        log.error(f"Telegram API error: {result}")
+        raise Exception(f"Telegram API error: {result}")
 
 
 class Notification(ABC):
     @abstractmethod
     def send_to_telegram(self):
         pass
+
+
+def make_blockquote(lines: List[str], prefix: str = ">") -> str:
+    return "\n".join([f"{prefix}{line}" for line in lines])
+
+
+def make_expandable_blockquote(lines: List[str], visible_lines: int = 5):
+    if len(lines) >= visible_lines:
+        # 前 visible_lines 行开头是 > 的引用块
+        # visible_lines + 1 是 **>
+        # 后续是 >
+        # 最后一行是 >text||
+        return (
+            make_blockquote(lines[:visible_lines])
+            + make_blockquote(lines[visible_lines : visible_lines + 1], prefix="**>")
+            + make_blockquote(lines[visible_lines + 1 :], prefix=">")
+            + make_blockquote(lines[visible_lines + 1 :])
+            + "||"
+        )
+    else:
+        make_blockquote(lines)
 
 
 class StatisticsNotification(Notification):
@@ -49,33 +98,9 @@ class StatisticsNotification(Notification):
             f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
             f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
         )
-        """
-        https://files.mcimirror.top/api/stats/center
-        {
-        "today": {
-            "hits": 69546,
-            "bytes": 112078832941
-        },
-        "onlines": 7,
-        "sources": 1,
-        "totalFiles": 922998,
-        "totalSize": 1697281799794,
-        "startTime": 1730551551412
-        }
-        """
         files_stats = request_sync(
             "https://files.mcimirror.top/api/stats/center"
         ).json()
-        """
-        当前在线节点：6 个
-        当日全网总请求：67597 次
-        当日全网总流量：100.89 GB
-        同步源数量：1 个
-        总文件数：922998 个
-        总文件大小：1.54 TB
-        主控在线时间：0 天 5 小时 12 分钟 14 秒
-        请求时间：2024 年 11 月 03 日 01:58:05
-        """
         files_message = (
             f"OpenMCIM 数据统计：\n"
             f"当前在线节点：{files_stats['onlines']} 个\n"
@@ -86,7 +111,8 @@ class StatisticsNotification(Notification):
             f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
         )
         final_message = f"{mcim_message}\n\n{files_message}"
-        send_message_sync(final_message)
+        message_id = send_message_sync(final_message)
+        pin_message(message_id)
         return final_message
 
 
@@ -135,13 +161,19 @@ class SyncNotification(Notification):
 
     def send_to_telegram(self):
         message = (
-            f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据"
+            f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据\n"
             + f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
-            + f"以下格式为 模组名(模组ID): 版本数量"
         )
-        for project in self.projects_detail_info:
-            if len(message) > 4000:  # Telegram 限制消息长度 4096 字符
-                break
-            message += f"\n{project.name}({project.id}): {project.version_count}"
+        mod_messages = []
+        if self.projects_detail_info:
+            message += f"\n以下格式为 模组名(模组ID): 版本数量\n"
+            for project in self.projects_detail_info:
+                if len(message) > 4000:  # Telegram 限制消息长度 4096 字符
+                    break
+                mod_messages.append(
+                    f"{project.name}({project.id}): {project.version_count}"
+                )
 
-        send_message_sync(message)
+            message += make_expandable_blockquote(mod_messages)
+
+        message_id = send_message_sync(message, parse_mode="MarkdownV2")

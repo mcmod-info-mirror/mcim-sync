@@ -33,14 +33,14 @@ def main():
     curseforge_refresh_job = scheduler.add_job(
         refresh_curseforge_with_modify_date,
         trigger=IntervalTrigger(seconds=config.interval.interval_curseforge_refresh),
-        next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+        # next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         name="mcim_curseforge_refresh",
     )
 
     modrinth_refresh_job = scheduler.add_job(
         refresh_modrinth_with_modify_date,
         trigger=IntervalTrigger(seconds=config.interval.interval_modrinth_refresh),
-        next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+        # next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         name="mcim_modrinth_refresh",
     )
 
@@ -62,6 +62,7 @@ def main():
         send_statistics_to_telegram,
         trigger=IntervalTrigger(seconds=config.interval.interval_global_statistics),
         name="mcim_statistics",
+        next_run_time=datetime.datetime.now(), 
     )
 
     # 启动调度器
