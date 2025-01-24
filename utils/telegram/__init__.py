@@ -2,6 +2,8 @@ from typing import List, Dict, Union, Sequence
 from pydantic import BaseModel
 import tenacity
 from abc import ABC, abstractmethod
+from telegram.helpers import escape_markdown
+
 
 from utils.network import request_sync
 from utils import SyncMode
@@ -9,15 +11,6 @@ from config import Config
 from utils.loger import log
 
 config = Config.load()
-
-
-def escape_markdown(text: str) -> str:
-    """
-    转义 Telegram MarkdownV2 特殊字符
-    """
-    special_chars = r'_*[]()~`>#+-=|{}.!'
-    return ''.join(f'\\{c}' if c in special_chars else c for c in text)
-
 
 @tenacity.retry(
     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
@@ -75,7 +68,7 @@ class Notification(ABC):
 
 
 def make_blockquote(lines: List[str], prefix: str = ">") -> str:
-    return "**" + "\n".join([f"{prefix}{escape_markdown(line)}" for line in lines]) + "||"
+    return "**" + "\n".join([f"{prefix}{escape_markdown(line, version=2)}" for line in lines]) + "||"
 
 class StatisticsNotification(Notification):
     @classmethod
