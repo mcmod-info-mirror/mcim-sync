@@ -35,7 +35,7 @@ def send_message_sync(text: str, parse_mode: str = None) -> int:
         log.info(f"Message '{text}' sent to telegram, message_id: {result['result']['message_id']}")
         return result["result"]['message_id']
     else:
-        raise Exception(f"Telegram API error: {result}, original message: {text}, parse_mode: {parse_mode}")
+        raise Exception(f"Telegram API error: {result}, original message: {repr(text)}, parse_mode: {parse_mode}")
 
 @tenacity.retry(
     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
@@ -67,7 +67,7 @@ class Notification(ABC):
         pass
 
 
-def make_blockquote(lines: List[str], prefix: str = ">") -> str:
+def make_blockquote(lines: List[str], prefix: str = "> ") -> str:
     return "**" + "\n".join([f"{prefix}{escape_markdown(line, version=2)}" for line in lines]) + "||"
 
 class StatisticsNotification(Notification):
@@ -119,7 +119,7 @@ class ModrinthRefreshNotification(Notification):
         self.refreshed_count = refreshed_count
 
     def send_to_telegram(self):
-        sync_message = f"Modrinth 缓存刷新完成，共刷新 {self.refreshed_count} 个模组"
+        sync_message = f"Modrinth 缓存刷新完成，共刷新 {self.refreshed_count} 个模组" # TODO
         send_message_sync(sync_message)
 
 
@@ -151,7 +151,7 @@ class SyncNotification(Notification):
         )
         mod_messages = []
         if self.projects_detail_info:
-            message += f"\n以下格式为 模组名(模组ID): 版本数量\n"
+            message += escape_markdown(f"\n以下格式为 模组名(模组ID): 版本数量\n", version=2) # tmd 转义
             for project in self.projects_detail_info:
                 if len(message) > 4000:  # Telegram 限制消息长度 4096 字符
                     break
