@@ -1,4 +1,5 @@
 import os
+from telegram.helpers import escape_markdown
 
 from utils.telegram import send_message_sync, pin_message, StatisticsNotification
 from config import Config
@@ -19,7 +20,7 @@ def test_send_message_sync():
     message_id = send_message_sync("Hello, World!", chat_id=chat_id)  # test PlainText
     assert isinstance(message_id, int)
     message_id = send_message_sync(
-        "Hello, World!", parse_mode="MarkdownV2", chat_id=chat_id
+        escape_markdown("Hello, World!", version=2), parse_mode="MarkdownV2", chat_id=chat_id
     )  # test MarkdownV2
     global pin_message_id
     pin_message_id = message_id
@@ -27,7 +28,6 @@ def test_send_message_sync():
 
 
 def test_pin_message():
-    global pin_message_id
     if pin_message_id == 0:
         raise ValueError("pin_message_id is not set")
     result = pin_message(pin_message_id, chat_id=chat_id)

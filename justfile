@@ -30,7 +30,7 @@ ci-install:
     pip install pytest
 
 ci-test:
-    pytest ./tests
+    pytest ./tests -vv -rpP
 
 ci-config:
     echo $CONFIG > config.json
