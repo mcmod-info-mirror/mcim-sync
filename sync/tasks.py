@@ -3,17 +3,20 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils.loger import log
-from utils.telegram import SyncNotification, CurseforgeRefreshNotification, ModrinthRefreshNotification, StatisticsNotification
-from utils import SyncMode
+from utils.telegram import (
+    SyncNotification,
+    RefreshNotification,
+    StatisticsNotification,
+)
 from config import Config
 from sync.curseforge import sync_mod, sync_mod_all_files
 from sync.modrinth import sync_project, sync_project_all_version
 from sync.check import (
-    fetch_all_curseforge_data,
-    fetch_all_modrinth_data,
+    # fetch_all_curseforge_data,
+    # fetch_all_modrinth_data,
     fetch_expired_curseforge_data,
     fetch_expired_modrinth_data,
-    fetch_modrinth_data_by_sync_at,
+    # fetch_modrinth_data_by_sync_at,
     check_curseforge_fileids_available,
     check_curseforge_modids_available,
     check_curseforge_fingerprints_available,
@@ -87,218 +90,161 @@ def create_tasks_pool(sync_function, data, max_workers, thread_name_prefix):
     return thread_pool, futures
 
 
-def refresh_curseforge_with_modify_date():
+def refresh_curseforge_with_modify_date() -> bool:
     log.info("Start fetching expired CurseForge data.")
 
     if SYNC_CURSEFORGE:
-        curseforge_expired_data = fetch_expired_curseforge_data()
-        notification = CurseforgeRefreshNotification(refreshed_count=len(curseforge_expired_data))
-        log.info(f"Curseforge expired data fetched: {notification.refreshed_count}")
+        curseforge_expired_modids = fetch_expired_curseforge_data()
+
+        log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
         log.info(f"Start syncing CurseForge expired data...")
 
         curseforge_pause_event.set()
         curseforge_pool, curseforge_futures = create_tasks_pool(
-            sync_mod_all_files,
-            curseforge_expired_data,
+            sync_mod,  # 需要 ProjectDetail 返回值
+            curseforge_expired_modids,
             MAX_WORKERS,
             "curseforge",
         )
-
+        projects_detail_info = []
         for future in as_completed(curseforge_futures):
-            pass
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
         else:
             curseforge_pool.shutdown()
 
         if config.telegram_bot:
+            notification = RefreshNotification(
+                platform="Curseforge",
+                projects_detail_info=projects_detail_info,
+            )
             notification.send_to_telegram()
             log.info("CurseForge refresh message sent to telegram.")
 
+    return True
 
-def refresh_modrinth_with_modify_date():
+
+def refresh_modrinth_with_modify_date() -> bool:
     log.info("Start fetching expired Modrinth data.")
 
     if SYNC_MODRINTH:
         modrinth_expired_data = fetch_expired_modrinth_data()
-        notification = ModrinthRefreshNotification(refreshed_count=len(modrinth_expired_data))
-        log.info(f"Modrinth expired data fetched: {notification.refreshed_count}")
+
+        log.info(f"Modrinth expired data fetched: {len(modrinth_expired_data)}")
         log.info(f"Start syncing Modrinth expired data...")
 
         modrinth_pause_event.set()
         modrinth_pool, modrinth_futures = create_tasks_pool(
-            sync_project_all_version,
+            sync_project,  # 需要 ProjectDetail 返回值
             modrinth_expired_data,
             MAX_WORKERS,
             "modrinth",
         )
 
+        projects_detail_info = []
         for future in as_completed(modrinth_futures):
-            pass
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
         else:
             modrinth_pool.shutdown()
 
         if config.telegram_bot:
+            notification = RefreshNotification(
+                platform="Modrinth",
+                projects_detail_info=projects_detail_info,
+            )
             notification.send_to_telegram()
             log.info("Modrinth refresh message sent to telegram.")
 
-
-def sync_modrinth_full():
-    log.info("Start fetching all data.")
-    total_data = {
-        "modrinth": 0,
-    }
-
-    if SYNC_MODRINTH:
-        modrinth_data = fetch_all_modrinth_data()
-        log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
-        total_data["modrinth"] = len(modrinth_data)
-
-    # 允许请求
-    modrinth_pause_event.set()
-
-    modrinth_pool, modrinth_futures = create_tasks_pool(
-        sync_project_all_version, modrinth_data, MAX_WORKERS, "modrinth"
-    )
-
-    log.info(f"All {len(modrinth_futures)} tasks submitted, waiting for completion...")
-
-    for future in as_completed(modrinth_futures):
-        # 不需要返回值
-        pass
-
-    modrinth_pool.shutdown()
-
-    # log.info(
-    #     f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-    # )
+    return True
 
 
-def sync_curseforge_full():
-    log.info("Start fetching all data.")
-    total_data = {
-        "curseforge": 0,
-    }
+# def sync_modrinth_full():
+#     log.info("Start fetching all data.")
+#     total_data = {
+#         "modrinth": 0,
+#     }
 
-    if SYNC_CURSEFORGE:
-        curseforge_data = fetch_all_curseforge_data()
-        log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
-        total_data["curseforge"] = len(curseforge_data)
+#     if SYNC_MODRINTH:
+#         modrinth_data = fetch_all_modrinth_data()
+#         log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
+#         total_data["modrinth"] = len(modrinth_data)
 
-    # 允许请求
-    curseforge_pause_event.set()
+#     # 允许请求
+#     modrinth_pause_event.set()
 
-    curseforge_pool, curseforge_futures = create_tasks_pool(
-        sync_mod_all_files, curseforge_data, MAX_WORKERS, "curseforge"
-    )
+#     modrinth_pool, modrinth_futures = create_tasks_pool(
+#         sync_project_all_version, modrinth_data, MAX_WORKERS, "modrinth"
+#     )
 
-    log.info(
-        f"All {len(curseforge_futures)} tasks submitted, waiting for completion..."
-    )
+#     log.info(f"All {len(modrinth_futures)} tasks submitted, waiting for completion...")
 
-    for future in as_completed(curseforge_futures):
-        # 不需要返回值
-        pass
+#     for future in as_completed(modrinth_futures):
+#         # 不需要返回值
+#         pass
 
-    curseforge_pool.shutdown()
-
-    # log.info(
-    #     f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-    # )
+#     modrinth_pool.shutdown()
 
 
-def sync_modrinth_by_sync_at():
-    log.info("Start fetching all data.")
-    total_data = {
-        "modrinth": 0,
-    }
+# def sync_curseforge_full():
+#     log.info("Start fetching all data.")
+#     total_data = {
+#         "curseforge": 0,
+#     }
 
-    if SYNC_MODRINTH:
-        modrinth_data = fetch_modrinth_data_by_sync_at()
-        log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
-        total_data["modrinth"] = len(modrinth_data)
+#     if SYNC_CURSEFORGE:
+#         curseforge_data = fetch_all_curseforge_data()
+#         log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
+#         total_data["curseforge"] = len(curseforge_data)
 
-    # 允许请求
-    modrinth_pause_event.set()
+#     # 允许请求
+#     curseforge_pause_event.set()
 
-    modrinth_pool, modrinth_futures = create_tasks_pool(
-        sync_project_all_version, modrinth_data, MAX_WORKERS, "modrinth"
-    )
+#     curseforge_pool, curseforge_futures = create_tasks_pool(
+#         sync_mod_all_files, curseforge_data, MAX_WORKERS, "curseforge"
+#     )
 
-    log.info(f"All {len(modrinth_futures)} tasks submitted, waiting for completion...")
+#     log.info(
+#         f"All {len(curseforge_futures)} tasks submitted, waiting for completion..."
+#     )
 
-    for future in as_completed(modrinth_futures):
-        # 不需要返回值
-        pass
+#     for future in as_completed(curseforge_futures):
+#         # 不需要返回值
+#         pass
 
-    modrinth_pool.shutdown()
-
-    # log.info(
-    #     f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-    # )
+#     curseforge_pool.shutdown()
 
 
-# def sync_full():
-#     sync_job.pause()
-#     log.info("Start full sync, stop dateime_based sync.")
-#     try:
-#         log.info("Start fetching all data.")
-#         total_data = {
-#             "curseforge": 0,
-#             "modrinth": 0,
-#         }
-#         # fetch all data
-#         if SYNC_CURSEFORGE:
-#             curseforge_data = fetch_all_curseforge_data()
-#             log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
-#             total_data["curseforge"] = len(curseforge_data)
-#         if SYNC_MODRINTH:
-#             modrinth_data = fetch_all_modrinth_data()
-#             log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
-#             total_data["modrinth"] = len(modrinth_data)
+# def sync_modrinth_by_sync_at():
+#     log.info("Start fetching all data.")
+#     total_data = {
+#         "modrinth": 0,
+#     }
 
-#         # 允许请求
-#         curseforge_pause_event.set()
-#         modrinth_pause_event.set()
+#     if SYNC_MODRINTH:
+#         modrinth_data = fetch_modrinth_data_by_sync_at()
+#         log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
+#         total_data["modrinth"] = len(modrinth_data)
 
-#         # start two threadspool to sync curseforge and modrinth
-#         with ThreadPoolExecutor(
-#             max_workers=MAX_WORKERS, thread_name_prefix="curseforge"
-#         ) as curseforge_executor, ThreadPoolExecutor(
-#             max_workers=MAX_WORKERS, thread_name_prefix="modrinth"
-#         ) as modrinth_executor:
-#             curseforge_futures = [
-#                 curseforge_executor.submit(sync_with_pause, sync_mod_all_files, modid)
-#                 for modid in curseforge_data
-#             ]
-#             modrinth_futures = [
-#                 modrinth_executor.submit(
-#                     sync_with_pause, sync_project_all_version, project_id
-#                 )
-#                 for project_id in modrinth_data
-#             ]
+#     # 允许请求
+#     modrinth_pause_event.set()
 
-#             log.info(
-#                 f"All {len(curseforge_futures) + len(modrinth_futures)} tasks submitted, waiting for completion..."
-#             )
+#     modrinth_pool, modrinth_futures = create_tasks_pool(
+#         sync_project_all_version, modrinth_data, MAX_WORKERS, "modrinth"
+#     )
 
-#             for future in as_completed(curseforge_futures + modrinth_futures):
-#                 # 不需要返回值
-#                 pass
+#     log.info(f"All {len(modrinth_futures)} tasks submitted, waiting for completion...")
 
-#         log.info(
-#             f"All data sync finished, total: {total_data}. Next run at: {sync_full_job.next_run_time.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-#         )
+#     for future in as_completed(modrinth_futures):
+#         # 不需要返回值
+#         pass
 
-#         notify_result_to_telegram(total_data, sync_mode=SyncMode.FULL)
-#         log.info("All Message sent to telegram.")
-#     except Exception as e:
-#         log.error(f"Full sync failed: {e}")
-#     finally:
-#         sync_job.resume()
-#         log.info("Full sync finished, resume dateime_based sync.")
+#     modrinth_pool.shutdown()
 
 
-def sync_curseforge_queue():
-    log.info("Start fetching curseforge queue.")
+def fetch_curseforge_fileids_from_queue():
     modids = []
     avaliable_modids = check_curseforge_modids_available()
     modids.extend(avaliable_modids)
@@ -311,8 +257,13 @@ def sync_curseforge_queue():
     log.info(f"CurseForge fingerprints available: {len(avaliable_fingerprints)}")
 
     modids = [modid for modid in modids if modid >= 30000]  # 排除掉 0-30000 的 modid
-    log.info(f"Total modids: {len(modids)} to sync.")
+    return modids
 
+
+def sync_curseforge_queue() -> bool:
+    log.info("Start fetching curseforge queue.")
+
+    modids = fetch_curseforge_fileids_from_queue()
     new_modids = check_new_modids(modids=modids)
     log.info(f"New modids: {new_modids}, count: {len(new_modids)}")
 
@@ -347,11 +298,14 @@ def sync_curseforge_queue():
 
             log.info("All Message sent to telegram.")
 
+    return True
 
-def sync_modrinth_queue():
-    log.info("Start fetching modrinth queue.")
+
+def fetch_modrinth_project_ids_from_queue():
+    """
+    获取 modrinth 队列中的所有 project ids，检查是否真的存在
+    """
     project_ids = []
-
     avaliable_project_ids = check_modrinth_project_ids_available()
     project_ids.extend(avaliable_project_ids)
     log.info(f"Modrinth project ids available: {len(avaliable_project_ids)}")
@@ -361,10 +315,17 @@ def sync_modrinth_queue():
     avaliable_hashes = check_modrinth_hashes_available()
     project_ids.extend(avaliable_hashes)
     log.info(f"Modrinth hashes available: {len(avaliable_hashes)}")
+    return project_ids
 
+
+def sync_modrinth_queue() -> bool:
+    log.info("Start fetching modrinth queue.")
+
+    project_ids = fetch_modrinth_project_ids_from_queue()
     project_ids = list(set(project_ids))
-    log.info(f"Total project ids: {len(project_ids)} to sync.")
+    log.info(f"Total project ids: {len(project_ids)} to check.")
 
+    # 只要新的 project ids
     new_project_ids = check_new_project_ids(project_ids=project_ids)
     log.info(f"New project ids: {new_project_ids}, count: {len(new_project_ids)}")
 
@@ -402,9 +363,12 @@ def sync_modrinth_queue():
 
             log.info("All Message sent to telegram.")
 
+    return True
 
-def send_statistics_to_telegram():
+
+def send_statistics_to_telegram() -> bool:
     log.info("Start fetching statistics to telegram.")
     message = StatisticsNotification.send_to_telegram()
     log.info("Statistics message sent to telegram.")
-    log.info(f"Statistics message: {message}")
+    # log.info(f"Statistics message: {message}")
+    return True

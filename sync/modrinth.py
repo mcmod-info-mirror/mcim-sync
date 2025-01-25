@@ -15,13 +15,14 @@ import time
 
 from models.database.modrinth import Project, File, Version
 from models.database.file_cdn import File as FileCDN
-from utils.network import request_sync
+from models import ProjectDetail
+from utils.network import request
 from exceptions import ResponseCodeException
 from config import Config
 from database.mongodb import sync_mongo_engine as mongodb_engine
 from utils import submit_models
 from utils.loger import log
-from utils.telegram import ProjectDetail
+
 
 config = Config.load()
 
@@ -31,7 +32,7 @@ MAX_LENGTH = config.max_file_size
 
 def sync_project_all_version(
     project_id: str,
-    slug: Optional[str] = None,
+    slug: str,
     need_to_cache: bool = True,
 ) -> List[Union[Project, File, Version]]:
     models = []
@@ -40,15 +41,10 @@ def sync_project_all_version(
         if project:
             slug = project.slug
         else:
-            try:
-                res = request_sync(f"{API}/project/{project_id}").json()
-            except ResponseCodeException as e:
-                if e.status_code == 404:
-                    # models.append(Project(id=project_id, slug=project_id))
-                    return
-            slug = res["slug"]
+            raise Exception(f"Slug is required when project not in database")
+
     try:
-        res = request_sync(f"{API}/project/{project_id}/version").json()
+        res = request(f"{API}/project/{project_id}/version").json()
     except ResponseCodeException as e:
         if e.status_code == 404:
             # models.append(Project(id=project_id, slug=project_id))
@@ -103,7 +99,7 @@ def sync_project_all_version(
 def sync_project(project_id: str) -> ProjectDetail:
     models = []
     try:
-        res = request_sync(f"{API}/project/{project_id}").json()
+        res = request(f"{API}/project/{project_id}").json()
         project_model = Project(**res)
         models.append(project_model)
         # db_project = mongodb_engine.find_one(Project, Project.id == project_id)
@@ -132,7 +128,7 @@ def sync_project(project_id: str) -> ProjectDetail:
 
 def fetch_mutil_projects_info(project_ids: List[str]):
     try:
-        res = request_sync(
+        res = request(
             f"{API}/projects", params={"ids": json.dumps(project_ids)}
         ).json()
         return res
@@ -146,7 +142,7 @@ def fetch_mutil_projects_info(project_ids: List[str]):
 
 def fetch_multi_versions_info(version_ids: List[str]):
     try:
-        res = request_sync(
+        res = request(
             f"{API}/versions", params={"ids": json.dumps(version_ids)}
         ).json()
         return res
@@ -160,7 +156,7 @@ def fetch_multi_versions_info(version_ids: List[str]):
 
 def fetch_multi_hashes_info(hashes: List[str], algorithm: str):
     try:
-        res = request_sync(
+        res = request(
             method="POST",
             url=f"{API}/version_files",
             json={"hashes": hashes, "algorithm": algorithm},

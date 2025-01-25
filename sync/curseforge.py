@@ -1,11 +1,11 @@
 from typing import List, Optional, Union
-from utils.telegram import ProjectDetail
 from odmantic import query
 import time
 
 from models.database.curseforge import File, Mod, Pagination, Fingerprint
 from models.database.file_cdn import File as FileCDN
-from utils.network import request_sync
+from models import ProjectDetail
+from utils.network import request
 from utils.loger import log
 from utils import submit_models
 from database.mongodb import sync_mongo_engine as mongodb_engine
@@ -66,22 +66,24 @@ def append_model_from_files_res(
 
 def sync_mod_all_files(
     modId: int,
-    latestFiles: List[dict] = None,
+    latestFiles: List[dict],
     need_to_cache: bool = True,
 ) -> List[Union[File, Mod]]:
     models = []
     if not latestFiles:
         mod_model = mongodb_engine.find_one(Mod, Mod.id == modId)
-        if mod_model is not None:
+        if mod_model:
             latestFiles = mod_model.latestFiles
             need_to_cache = mod_model.classId == 6
+        else:
+            raise Exception("latestFiles is required when mod not in database")
 
     try:
         params = {"index": 0, "pageSize": 50}
         file_id_list = []
 
         while True:
-            res = request_sync(
+            res = request(
                 f"{API}/v1/mods/{modId}/files",
                 headers=HEADERS,
                 params=params,
@@ -126,7 +128,7 @@ def sync_mod_all_files(
 def sync_mod(modId: int) -> ProjectDetail:
     models: List[Union[File, Mod]] = []
     try:
-        res = request_sync(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
+        res = request(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
         models.append(Mod(**res))
         # mod = mongodb_engine.find_one(Mod, Mod.id == modId)
         # if mod is not None:
@@ -135,7 +137,7 @@ def sync_mod(modId: int) -> ProjectDetail:
         #         return
         total_count = sync_mod_all_files(
             modId,
-            latestFiles=res["latestFiles"],
+            latestFiles=res["latestFiles"], # 此处调用必传 latestFiles
             need_to_cache=True if res["classId"] == 6 else False,
         )
         submit_models(models)
@@ -155,7 +157,7 @@ def fetch_mutil_mods_info(modIds: List[int]):
     modIds = list(set(modIds))
     data = {"modIds": modIds}
     try:
-        res = request_sync(
+        res = request(
             method="POST", url=f"{API}/v1/mods", json=data, headers=HEADERS
         ).json()["data"]
         return res
@@ -168,7 +170,7 @@ def fetch_mutil_files(fileIds: List[int]):
     fileIds = list(set(fileIds))
     data = {"fileIds": fileIds}
     try:
-        res = request_sync(
+        res = request(
             method="POST", url=f"{API}/v1/mods/files", json=data, headers=HEADERS
         ).json()["data"]
         return res
@@ -179,7 +181,7 @@ def fetch_mutil_files(fileIds: List[int]):
 
 def fetch_mutil_fingerprints(fingerprints: List[int]):
     try:
-        res = request_sync(
+        res = request(
             method="POST",
             url=f"{API}/v1/fingerprints/432",
             headers=HEADERS,
