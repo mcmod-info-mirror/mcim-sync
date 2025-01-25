@@ -13,7 +13,6 @@ jobs:
     name: Unit test
     env:
         CONFIG: ${{ secrets.CONFIG }} # 配置文件
-        CHAT_ID: ${{ secrets.CHAT_ID }} # 测试 telegram 通知
     steps:
       - name: Checkout
         uses: actions/checkout@v4
