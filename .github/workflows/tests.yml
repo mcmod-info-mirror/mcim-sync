@@ -38,6 +38,7 @@ jobs:
           just mongodb-tool-install
           just redis-tool-install
           just ci-install
+          just import-data
           just ci-config
 
       - name: Run unit tests

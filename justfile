@@ -16,13 +16,12 @@ redis-tool-install:
     sudo apt install redis-tools # for redis-cli
 
 import-data:
-    mongoimport --db mcim_backend --collection modrinth_projects --file ./data/modrinth_projects.json
-    mongoimport --db mcim_backend --collection modrinth_versions --file ./data/modrinth_versions.json
-    mongoimport --db mcim_backend --collection modrinth_files --file ./data/modrinth_files.json
-    mongoimport --db mcim_backend --collection curseforge_mods --file ./data/curseforge_mods.json
-    mongoimport --db mcim_backend --collection curseforge_files --file ./data/curseforge_files.json
-    mongoimport --db mcim_backend --collection curseforge_fingerprint --file ./data/curseforge_fingerprint.json
-
+    mongoimport --db mcim_backend --collection modrinth_projects --file ./data/modrinth_projects.json --jsonArray
+    mongoimport --db mcim_backend --collection modrinth_versions --file ./data/modrinth_versions.json --jsonArray
+    mongoimport --db mcim_backend --collection modrinth_files --file ./data/modrinth_files.json --jsonArray
+    mongoimport --db mcim_backend --collection curseforge_mods --file ./data/curseforge_mods.json --jsonArray
+    mongoimport --db mcim_backend --collection curseforge_files --file ./data/curseforge_files.json --jsonArray
+    mongoimport --db mcim_backend --collection curseforge_fingerprint --file ./data/curseforge_fingerprints.json --jsonArray
     redis-cli --pipe < ./data/redis_data.txt
 
 ci-install:
