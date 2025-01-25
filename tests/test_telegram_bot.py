@@ -21,9 +21,9 @@ def test_send_message_sync():
     message_id = send_message_sync(
         "Hello, World!", parse_mode="MarkdownV2", chat_id=chat_id
     )  # test MarkdownV2
-    assert isinstance(message_id, int)
     global pin_message_id
     pin_message_id = message_id
+    assert isinstance(message_id, int)
 
 
 def test_pin_message():
@@ -35,4 +35,4 @@ def test_pin_message():
 
 
 def test_send_message_static():
-    assert StatisticsNotification.send_to_telegram()
+    assert isinstance(StatisticsNotification.send_to_telegram(), int)

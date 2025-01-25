@@ -75,7 +75,7 @@ def pin_message(message_id: int, chat_id: str) -> bool:
 
 class Notification(ABC):
     @abstractmethod
-    def send_to_telegram(self):
+    def send_to_telegram(self) -> int:
         pass
 
 
@@ -106,7 +106,7 @@ def make_project_detail_blockquote(projects_detail_info: List[ProjectDetail]) ->
 
 class StatisticsNotification(Notification):
     @classmethod
-    def send_to_telegram(cls):
+    def send_to_telegram(cls) -> int:
         mcim_stats = request("https://mod.mcimirror.top/statistics").json()
         files_stats = request("https://files.mcimirror.top/api/stats/center").json()
         mcim_message = (
@@ -128,7 +128,7 @@ class StatisticsNotification(Notification):
         final_message = f"{mcim_message}\n\n{files_message}"
         message_id = send_message_sync(final_message, chat_id=config.chat_id)
         pin_message(message_id, chat_id=config.chat_id)
-
+        return message_id
 
 class RefreshNotification(Notification):
     platform: str
@@ -138,7 +138,7 @@ class RefreshNotification(Notification):
         self.platform = platform
         self.projects_detail_info = projects_detail_info
 
-    def send_to_telegram(self):
+    def send_to_telegram(self) -> int:
         sync_message = escape_markdown(
             f"缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组", version=2
         )
@@ -154,7 +154,8 @@ class RefreshNotification(Notification):
         #     sync_message += make_blockquote(mod_messages)
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
-        send_message_sync(sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2")
+        message_id = send_message_sync(sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2")
+        return message_id
 
 
 class SyncNotification(Notification):
@@ -172,7 +173,7 @@ class SyncNotification(Notification):
         self.total_catached_count = total_catached_count
         self.projects_detail_info = projects_detail_info
 
-    def send_to_telegram(self):
+    def send_to_telegram(self) -> int:
         message = escape_markdown(
             (
                 f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据\n"
@@ -180,7 +181,7 @@ class SyncNotification(Notification):
             ),
             version=2,
         )
-
+        
         if self.projects_detail_info:
             # mod_messages = []
             # message += escape_markdown(
@@ -199,3 +200,4 @@ class SyncNotification(Notification):
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
         )
+        return message_id
