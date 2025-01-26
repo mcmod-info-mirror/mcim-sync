@@ -1,8 +1,8 @@
 import pytest
 from telegram.helpers import escape_markdown
 
-from utils.telegram import send_message_sync, pin_message, StatisticsNotification
-from config import Config
+from mcim_sync.utils.telegram import send_message_sync, pin_message, StatisticsNotification
+from mcim_sync.config import Config
 
 config = Config.load()
 

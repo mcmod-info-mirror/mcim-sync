@@ -2,24 +2,24 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import datetime
 
-from database.mongodb import init_mongodb_syncengine
-from database._redis import init_redis_syncengine
-from utils.loger import log
-from config import Config
-from sync.tasks import (
-    refresh_curseforge_with_modify_date,
-    refresh_modrinth_with_modify_date,
-    sync_curseforge_queue,
+from mcim_sync.database.mongodb import init_mongodb_syncengine
+from mcim_sync.database._redis import init_redis_syncengine
+from mcim_sync.utils.loger import log
+from mcim_sync.config import Config
+from mcim_sync.tasks.modrinth import (
     sync_modrinth_queue,
-    refresh_curseforge_categories,
-    send_statistics_to_telegram
+    refresh_modrinth_with_modify_date,
+    sync_modrinth_tags,
 )
+from mcim_sync.tasks.curseforge import (
+    sync_curseforge_queue,
+    refresh_curseforge_with_modify_date,
+    refresh_curseforge_categories,
+)
+from mcim_sync.tasks.misc import send_statistics_to_telegram
 
 config = Config.load()
 log.info(f"MCIMConfig loaded.")
-
-CURSEFORGE_LIMIT_SIZE: int = config.curseforge_chunk_size
-MODRINTH_LIMIT_SIZE: int = config.modrinth_chunk_size
 
 
 def main():
@@ -60,7 +60,14 @@ def main():
         refresh_curseforge_categories,
         trigger=IntervalTrigger(seconds=config.interval.curseforge_categories),
         name="curseforge_categories_refresh",
-        next_run_time=datetime.datetime.now(), # 立即执行一次任务
+        next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+    )
+
+    modrinth_refresh_tags_job = scheduler.add_job(
+        sync_modrinth_tags,
+        trigger=IntervalTrigger(seconds=config.interval.modrinth_tags),
+        name="modrinth_refresh_tags",
+        next_run_time=datetime.datetime.now(),  # 立即执行一次任务
     )
 
     if config.telegram_bot:
@@ -69,7 +76,7 @@ def main():
             send_statistics_to_telegram,
             trigger=IntervalTrigger(seconds=config.interval.global_statistics),
             name="statistics",
-            next_run_time=datetime.datetime.now(), # 立即执行一次任务
+            next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         )
 
     # 启动调度器
@@ -82,6 +89,7 @@ def main():
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
         log.info(f"Scheduler shutdown")
+
 
 if __name__ == "__main__":
     main()

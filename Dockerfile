@@ -10,12 +10,7 @@ RUN pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple/ \
     && pip install --user --no-cache-dir -r requirements.txt
 
 # 复制应用程序代码
-COPY start.py config.py ./
-COPY ./database ./database
-COPY ./models ./models
-COPY ./utils ./utils
-COPY ./sync ./sync
-COPY ./exceptions ./exceptions
+COPY mcim_sync ./mcim_sync
 
 # 第二阶段：运行阶段
 FROM python:3.11-slim-buster
