@@ -11,6 +11,7 @@ from sync.tasks import (
     refresh_modrinth_with_modify_date,
     sync_curseforge_queue,
     sync_modrinth_queue,
+    refresh_curseforge_categories,
     send_statistics_to_telegram
 )
 
@@ -32,35 +33,42 @@ def main():
     # 添加定时刷新任务，每小时执行一次
     curseforge_refresh_job = scheduler.add_job(
         refresh_curseforge_with_modify_date,
-        trigger=IntervalTrigger(seconds=config.interval.interval_curseforge_refresh),
-        name="mcim_curseforge_refresh",
+        trigger=IntervalTrigger(seconds=config.interval.curseforge_refresh),
+        name="curseforge_refresh",
     )
 
     modrinth_refresh_job = scheduler.add_job(
         refresh_modrinth_with_modify_date,
-        trigger=IntervalTrigger(seconds=config.interval.interval_modrinth_refresh),
-        name="mcim_modrinth_refresh",
+        trigger=IntervalTrigger(seconds=config.interval.modrinth_refresh),
+        name="modrinth_refresh",
     )
 
     # 添加定时同步任务，用于检查 api 未找到的请求数据
     curseforge_sync_job = scheduler.add_job(
         sync_curseforge_queue,
-        trigger=IntervalTrigger(seconds=config.interval.interval_sync_curseforge),
-        name="mcim_sync_curseforge",
+        trigger=IntervalTrigger(seconds=config.interval.sync_curseforge),
+        name="sync_curseforge",
     )
 
     modrinth_sync_job = scheduler.add_job(
         sync_modrinth_queue,
-        trigger=IntervalTrigger(seconds=config.interval.interval_sync_modrinth),
-        name="mcim_sync_modrinth",
+        trigger=IntervalTrigger(seconds=config.interval.sync_modrinth),
+        name="sync_modrinth",
+    )
+
+    curseforge_categories_refresh_job = scheduler.add_job(
+        refresh_curseforge_categories,
+        trigger=IntervalTrigger(seconds=config.interval.curseforge_categories),
+        name="curseforge_categories_refresh",
+        next_run_time=datetime.datetime.now(), # 立即执行一次任务
     )
 
     if config.telegram_bot:
         # 单独发布统计信息
         statistics_job = scheduler.add_job(
             send_statistics_to_telegram,
-            trigger=IntervalTrigger(seconds=config.interval.interval_global_statistics),
-            name="mcim_statistics",
+            trigger=IntervalTrigger(seconds=config.interval.global_statistics),
+            name="statistics",
             next_run_time=datetime.datetime.now(), # 立即执行一次任务
         )
 

@@ -22,11 +22,12 @@ class RedisConfigModel(BaseModel):
     database: int = 0
 
 class JobInterval(BaseModel):
-    interval_curseforge_refresh: int = 60 * 60 * 2 # 2 hours
-    interval_modrinth_refresh: int = 60 * 60 * 2 # 2 hours
-    interval_sync_curseforge: int = 60 * 5 # 5 minutes
-    interval_sync_modrinth: int = 60 * 5 # 5 minutes
-    interval_global_statistics: int = 60 * 60 * 24 # 24 hours
+    curseforge_refresh: int = 60 * 60 * 2 # 2 hours
+    modrinth_refresh: int = 60 * 60 * 2 # 2 hours
+    sync_curseforge: int = 60 * 5 # 5 minutes
+    sync_modrinth: int = 60 * 5 # 5 minutes
+    curseforge_categories: int = 60 * 60 * 24 # 24 hours
+    global_statistics: int = 60 * 60 * 24 # 24 hours
 
 class ConfigModel(BaseModel):
     debug: bool = False

@@ -26,7 +26,7 @@ from sync.queue import (
     fetch_curseforge_fileids_queue,
     fetch_curseforge_fingerprints_queue,
 )
-from utils import submit_models
+from utils import ModelSubmitter
 
 config = Config.load()
 
@@ -40,27 +40,26 @@ MODRINTH_DELAY: Union[float, int] = config.modrinth_delay
 def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
     mod_date = {mod.id: {"sync_date": mod.dateModified} for mod in mods}
     expired_modids: Set[int] = set()
-    info = fetch_mutil_mods_info(modIds=[mod.id for mod in mods])
-    models: List[Mod] = []
-    for mod in info:
-        models.append(Mod(**mod))
-        modid = mod["id"]
-        mod_date[modid]["source_date"] = mod["dateModified"]
-        sync_date: datetime.datetime = mod_date[modid]["sync_date"].replace(tzinfo=None)
-        dateModified_date = datetime.datetime.fromisoformat(
-            mod["dateModified"]
-        ).replace(tzinfo=None)
-        if int(sync_date.timestamp()) == int(dateModified_date.timestamp()):
-            log.debug(f"Mod {modid} is not updated, pass!")
-        else:
-            expired_modids.add(modid)
-            log.debug(
-                f"Mod {modid} is updated {sync_date.isoformat(timespec='seconds')} -> {dateModified_date.isoformat(timespec='seconds')}!"
+    mod_info = fetch_mutil_mods_info(modIds=[mod.id for mod in mods])
+    with ModelSubmitter() as submitter:
+        for mod in mod_info:
+            submitter.add(Mod(**mod))
+            modid = mod["id"]
+            mod_date[modid]["source_date"] = mod["dateModified"]
+            sync_date: datetime.datetime = mod_date[modid]["sync_date"].replace(
+                tzinfo=None
             )
-        if len(models) >= 100:
-            submit_models(models)
-            models.clear()
-    submit_models(models)
+            dateModified_date = datetime.datetime.fromisoformat(
+                mod["dateModified"]
+            ).replace(tzinfo=None)
+            if int(sync_date.timestamp()) == int(dateModified_date.timestamp()):
+                log.debug(f"Mod {modid} is not updated, pass!")
+            else:
+                expired_modids.add(modid)
+                log.debug(
+                    f"Mod {modid} is updated {sync_date.isoformat(timespec='seconds')} -> {dateModified_date.isoformat(timespec='seconds')}!"
+                )
+
     return expired_modids
 
 
@@ -71,32 +70,31 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
     }
     info = fetch_mutil_projects_info(project_ids=[project.id for project in projects])
     expired_project_ids: Set[str] = set()
-    models: List[Project] = []
-    for project in info:
-        models.append(Project(**project))
-        project_id = project["id"]
-        sync_date: datetime.datetime = project_info[project_id]["sync_date"].replace(tzinfo=None)
-        project_info[project_id]["source_date"] = project["updated"]
-        updated_date = datetime.datetime.fromisoformat(
-            project["updated"]
-        ).replace(tzinfo=None)
-        if int(sync_date.timestamp()) == int(updated_date.timestamp()):
-            if project_info[project_id]["versions"] != project["versions"]:
-                log.debug(
-                    f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
-                )
-                expired_project_ids.add(project_id)
-            else:
-                log.debug(f"Project {project_id} is not updated, pass!")
-        else:
-            expired_project_ids.add(project_id)
-            log.debug(
-                f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
+    with ModelSubmitter() as submitter:
+        for project in info:
+            submitter.add(Project(**project))
+            project_id = project["id"]
+            sync_date: datetime.datetime = project_info[project_id][
+                "sync_date"
+            ].replace(tzinfo=None)
+            project_info[project_id]["source_date"] = project["updated"]
+            updated_date = datetime.datetime.fromisoformat(project["updated"]).replace(
+                tzinfo=None
             )
-        if len(models) >= 100:
-            submit_models(models)
-            models.clear()
-    submit_models(models)
+            if int(sync_date.timestamp()) == int(updated_date.timestamp()):
+                if project_info[project_id]["versions"] != project["versions"]:
+                    log.debug(
+                        f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
+                    )
+                    expired_project_ids.add(project_id)
+                else:
+                    log.debug(f"Project {project_id} is not updated, pass!")
+            else:
+                expired_project_ids.add(project_id)
+                log.debug(
+                    f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
+                )
+
     return expired_project_ids
 
 
@@ -221,10 +219,6 @@ def check_modrinth_project_ids_available():
     for i in range(0, len(project_ids), MODRINTH_LIMIT_SIZE):
         chunk = project_ids[i : i + MODRINTH_LIMIT_SIZE]
         info = fetch_mutil_projects_info(project_ids=chunk)
-        # 统一缓存
-        # # save in mongodb
-        # models = [Project(**project) for project in info]
-        # submit_models(models)
         available_project_ids.extend([project["id"] for project in info])
     return list(set(available_project_ids))
 

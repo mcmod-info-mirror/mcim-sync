@@ -7,7 +7,7 @@ from models.database.file_cdn import File as FileCDN
 from models import ProjectDetail
 from utils.network import request
 from utils.loger import log
-from utils import submit_models
+from utils import ModelSubmitter
 from database.mongodb import sync_mongo_engine as mongodb_engine
 from config import Config
 from exceptions import ResponseCodeException
@@ -24,44 +24,64 @@ HEADERS = {
 
 
 def append_model_from_files_res(
-    res, latestFiles: dict, need_to_cache: bool = True
-) -> List[Union[File, Fingerprint]]:
-    models = []
-    for file in res["data"]:
-        for _hash in file["hashes"]:
-            if _hash["algo"] == 1:
-                file["sha1"] = _hash["value"]
-            elif _hash["algo"] == 2:
-                file["md5"] = _hash["value"]
-        file_model = File(need_to_cache=need_to_cache, **file)
-        models.append(file_model)
-        models.append(
-            Fingerprint(
-                id=file["fileFingerprint"],
-                file=file,
-                latestFiles=latestFiles,
-            )
-        )
-        # for file_cdn
-        if config.file_cdn:
-            if (
-                need_to_cache,
-                file_model.sha1 is not None
-                and file_model.gameId == 432
-                and file_model.fileLength <= MAX_LENGTH
-                and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
-                and file_model.downloadUrl is not None,
-            ):
-                models.append(
-                    FileCDN(
-                        sha1=file_model.sha1,
-                        url=file_model.downloadUrl,
-                        path=file_model.sha1,
-                        size=file_model.fileLength,
-                        mtime=int(time.time()),
-                    )
+    res,
+    latestFiles: dict,
+    need_to_cache: bool = True,
+    # ) -> List[Union[File, Fingerprint]]:
+):
+    with ModelSubmitter() as submitter:
+        models = []
+        for file in res["data"]:
+            for _hash in file["hashes"]:
+                if _hash["algo"] == 1:
+                    file["sha1"] = _hash["value"]
+                elif _hash["algo"] == 2:
+                    file["md5"] = _hash["value"]
+            file_model = File(need_to_cache=need_to_cache, **file)
+            # models.append(file_model)
+            # models.append(
+            #     Fingerprint(
+            #         id=file["fileFingerprint"],
+            #         file=file,
+            #         latestFiles=latestFiles,
+            #     )
+            # )
+            submitter.add(file_model)
+            submitter.add(
+                Fingerprint(
+                    id=file["fileFingerprint"],
+                    file=file,
+                    latestFiles=latestFiles,
                 )
-    return models
+            )
+            # for file_cdn
+            if config.file_cdn:
+                if (
+                    need_to_cache,
+                    file_model.sha1 is not None
+                    and file_model.gameId == 432
+                    and file_model.fileLength <= MAX_LENGTH
+                    and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
+                    and file_model.downloadUrl is not None,
+                ):
+                    # models.append(
+                    #     FileCDN(
+                    #         sha1=file_model.sha1,
+                    #         url=file_model.downloadUrl,
+                    #         path=file_model.sha1,
+                    #         size=file_model.fileLength,
+                    #         mtime=int(time.time()),
+                    #     )
+                    # )
+                    submitter.add(
+                        FileCDN(
+                            sha1=file_model.sha1,
+                            url=file_model.downloadUrl,
+                            path=file_model.sha1,
+                            size=file_model.fileLength,
+                            mtime=int(time.time()),
+                        )
+                    )
 
 
 def sync_mod_all_files(
@@ -89,11 +109,10 @@ def sync_mod_all_files(
                 params=params,
             ).json()
 
-            models = append_model_from_files_res(
+            append_model_from_files_res(
                 res, latestFiles, need_to_cache=need_to_cache
             )
             file_id_list.extend([file["id"] for file in res["data"]])
-            submit_models(models=models)
 
             page = Pagination(**res["pagination"])
             log.debug(
@@ -126,26 +145,21 @@ def sync_mod_all_files(
 
 
 def sync_mod(modId: int) -> ProjectDetail:
-    models: List[Union[File, Mod]] = []
     try:
-        res = request(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
-        models.append(Mod(**res))
-        # mod = mongodb_engine.find_one(Mod, Mod.id == modId)
-        # if mod is not None:
-        #     if mod.dateReleased == models[0].dateReleased:
-        #         log.info(f"Mod {modId} is not out-of-date, pass!")
-        #         return
-        total_count = sync_mod_all_files(
-            modId,
-            latestFiles=res["latestFiles"],  # 此处调用必传 latestFiles
-            need_to_cache=True if res["classId"] == 6 else False,
-        )
-        submit_models(models)
-        return ProjectDetail(
-            id=res["id"],
-            name=res["name"],
-            version_count=total_count,
-        )
+        with ModelSubmitter() as submitter:
+            res = request(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
+            total_count = sync_mod_all_files(
+                modId,
+                latestFiles=res["latestFiles"],  # 此处调用必传 latestFiles
+                need_to_cache=True if res["classId"] == 6 else False,
+            )
+            submitter.add(Mod(**res))
+            return ProjectDetail(
+                id=res["id"],
+                name=res["name"],
+                version_count=total_count,
+            )
+            
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
@@ -197,21 +211,20 @@ def sync_categories(
     gameId: int = 432, classId: Optional[int] = None, classOnly: Optional[bool] = None
 ) -> List[Category]:
     try:
-        params={"gameId": gameId}
-        if classId is not None:
-            params["classId"] = classId
-        elif classOnly:
-            params["classOnly"] = classOnly
-        res = request(
-            f"{API}/v1/categories",
-            params=params,
-            headers=HEADERS,
-        ).json()["data"]
-        models = []
-        for category in res:
-            models.append(Category(**category))
-        submit_models(models=models)
-        return res
+        with ModelSubmitter() as submitter:
+            params = {"gameId": gameId}
+            if classId is not None:
+                params["classId"] = classId
+            elif classOnly:
+                params["classOnly"] = classOnly
+            res = request(
+                f"{API}/v1/categories",
+                params=params,
+                headers=HEADERS,
+            ).json()["data"]
+            for category in res:
+                submitter.add(Category(**category))
+            return res
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Categories not found!")

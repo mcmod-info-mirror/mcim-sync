@@ -17,5 +17,5 @@ def test_sync_mod():
 def test_sync_categories():
     result = sync_categories(gameId=432)
     assert isinstance(result, list)
-    assert all(isinstance(item, Category) for item in result)
+    assert all(Category(**item) for item in result)
     assert len(result) > 0
