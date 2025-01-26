@@ -44,7 +44,7 @@ class ConfigModel(BaseModel):
     modrinth_delay: Union[float, int] = 1
     curseforge_api_key: str = "<api key>"
     curseforge_api: str = "https://api.curseforge.com"  # 不然和api的拼接对不上
-    modrinth_api: str = "https://api.modrinth.com/v2"
+    modrinth_api: str = "https://api.modrinth.com"
     telegram_bot: bool = False
     bot_api: str = "https://api.telegram.org/bot"
     bot_token: str = "<bot token>"
