@@ -171,6 +171,7 @@ def fetch_multi_hashes_info(hashes: List[str], algorithm: str):
 
 
 def sync_categories():
+    mongodb_engine.remove(Category)
     with ModelSubmitter() as submitter:
         categories = request(f"{API}/v2/tag/category").json()
         for category in categories:
@@ -179,6 +180,7 @@ def sync_categories():
 
 
 def sync_loaders():
+    mongodb_engine.remove(Loader)
     with ModelSubmitter() as submitter:
         loaders = request(f"{API}/v2/tag/loader").json()
         for loader in loaders:
@@ -187,6 +189,7 @@ def sync_loaders():
 
 
 def sync_game_versions():
+    mongodb_engine.remove(GameVersion)
     with ModelSubmitter() as submitter:
         game_versions = request(f"{API}/v2/tag/game_version").json()
         for game_version in game_versions:
