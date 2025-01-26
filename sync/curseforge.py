@@ -50,7 +50,7 @@ def append_model_from_files_res(
                 and file_model.gameId == 432
                 and file_model.fileLength <= MAX_LENGTH
                 and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
-                and file_model.downloadUrl is not None
+                and file_model.downloadUrl is not None,
             ):
                 models.append(
                     FileCDN(
@@ -137,7 +137,7 @@ def sync_mod(modId: int) -> ProjectDetail:
         #         return
         total_count = sync_mod_all_files(
             modId,
-            latestFiles=res["latestFiles"], # 此处调用必传 latestFiles
+            latestFiles=res["latestFiles"],  # 此处调用必传 latestFiles
             need_to_cache=True if res["classId"] == 6 else False,
         )
         submit_models(models)
@@ -192,14 +192,27 @@ def fetch_mutil_fingerprints(fingerprints: List[int]):
         log.error(f"Failed to fetch mutil fingerprints info: {e}")
         return []
 
-def sync_categories() -> List[dict]:
+
+def sync_categories(
+    gameId: int = 432, classId: Optional[int] = None, classOnly: Optional[bool] = None
+) -> List[Category]:
     try:
-        res = request(f"{API}/v1/categories", headers=HEADERS).json()["data"]
+        res = request(
+            f"{API}/v1/categories",
+            params={"gameId": gameId, "classId": classId, "classOnly": classOnly},
+            headers=HEADERS,
+        ).json()["data"]
         models = []
         for category in res:
             models.append(Category(**category))
         submit_models(models=res)
         return res
+    except ResponseCodeException as e:
+        if e.status_code == 404:
+            log.error(f"Categories not found!")
+        else:
+            log.error(f"Failed to sync categories: {e}")
+        return []
     except Exception as e:
         log.error(f"Failed to sync categories: {e}")
         return []

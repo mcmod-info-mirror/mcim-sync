@@ -368,7 +368,7 @@ def sync_modrinth_queue() -> bool:
 
 def refresh_curseforge_categories() -> bool:
     log.info("Start fetching curseforge categories.")
-    result = sync_categories()
+    result = sync_categories(gameId=432)
     log.info(f"CurseForge categories sync finished, total categories: {len(result)}")
     return True
 
