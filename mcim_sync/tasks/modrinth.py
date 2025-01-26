@@ -178,7 +178,7 @@ def sync_modrinth_queue() -> bool:
 
     return True
 
-def sync_modrinth_tags():
+def refresh_modrinth_tags():
     log.info("Start fetching modrinth tags.")
     category_count = len(sync_categories())
     log.info(f"Modrinth Category count: {category_count}")
@@ -186,4 +186,5 @@ def sync_modrinth_tags():
     log.info(f"Modrinth Loader count: {loader_count}")
     game_version_count = len(sync_game_versions())
     log.info(f"Modrinth Game Version count: {game_version_count}")
+    log.info("Modrinth tags sync finished.")
     return True

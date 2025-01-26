@@ -9,7 +9,7 @@ from mcim_sync.config import Config
 from mcim_sync.tasks.modrinth import (
     sync_modrinth_queue,
     refresh_modrinth_with_modify_date,
-    sync_modrinth_tags,
+    refresh_modrinth_tags,
 )
 from mcim_sync.tasks.curseforge import (
     sync_curseforge_queue,
@@ -64,7 +64,7 @@ def main():
     )
 
     modrinth_refresh_tags_job = scheduler.add_job(
-        sync_modrinth_tags,
+        refresh_modrinth_tags,
         trigger=IntervalTrigger(seconds=config.interval.modrinth_tags),
         name="modrinth_refresh_tags",
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
