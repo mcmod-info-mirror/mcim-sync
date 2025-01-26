@@ -44,7 +44,7 @@ class ConfigModel(BaseModel):
     curseforge_api: str = "https://api.curseforge.com"  # 不然和api的拼接对不上
     modrinth_api: str = "https://api.modrinth.com/v2"
     telegram_bot: bool = False
-    bot_api: str = "<bot api>"
+    bot_api: str = "https://api.telegram.org/bot"
     bot_token: str = "<bot token>"
     chat_id: str = "<chat id>"
     telegram_proxy: Optional[str] = None
