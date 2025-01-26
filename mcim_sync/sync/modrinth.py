@@ -120,6 +120,7 @@ def sync_project(project_id: str) -> ProjectDetail:
                 slug=res["slug"],
                 need_to_cache=project_model.project_type == "mod",
             )
+            return ProjectDetail(id=project_id, name=res["slug"], version_count=total_count)
     except ResponseCodeException as e:
         if e.status_code == 404:
             # models.append(Project(id=project_id, slug=project_id))
@@ -127,7 +128,7 @@ def sync_project(project_id: str) -> ProjectDetail:
     except Exception as e:
         log.error(f"Failed to sync project {project_id} info: {e}")
         return
-    return ProjectDetail(id=project_id, name=res["slug"], version_count=total_count)
+    
 
 
 def fetch_mutil_projects_info(project_ids: List[str]):

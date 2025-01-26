@@ -17,12 +17,10 @@ from mcim_sync.checker.curseforge import (
 )
 from mcim_sync.fetcher.curseforge import fetch_expired_curseforge_data
 from mcim_sync.queues.curseforge import clear_curseforge_all_queues
-from mcim_sync.tasks import create_tasks_pool
+from mcim_sync.tasks import create_tasks_pool, curseforge_pause_event
 
 config = Config.load()
 
-# 429 全局暂停
-curseforge_pause_event = threading.Event()
 
 MAX_WORKERS: int = config.max_workers
 

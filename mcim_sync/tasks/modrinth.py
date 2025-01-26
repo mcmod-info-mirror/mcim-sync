@@ -17,13 +17,9 @@ from mcim_sync.checker.modrinth import (
 )
 from mcim_sync.fetcher.modrinth import fetch_expired_modrinth_data
 from mcim_sync.queues.modrinth import clear_modrinth_all_queues
-from mcim_sync.tasks import create_tasks_pool
+from mcim_sync.tasks import create_tasks_pool, modrinth_pause_event
 
 config = Config.load()
-
-# 429 全局暂停
-
-modrinth_pause_event = threading.Event()
 
 MAX_WORKERS: int = config.max_workers
 
