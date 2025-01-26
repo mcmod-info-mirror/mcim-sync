@@ -197,15 +197,20 @@ def sync_categories(
     gameId: int = 432, classId: Optional[int] = None, classOnly: Optional[bool] = None
 ) -> List[Category]:
     try:
+        params={"gameId": gameId}
+        if classId is not None:
+            params["classId"] = classId
+        elif classOnly:
+            params["classOnly"] = classOnly
         res = request(
             f"{API}/v1/categories",
-            params={"gameId": gameId, "classId": classId, "classOnly": classOnly},
+            params=params,
             headers=HEADERS,
         ).json()["data"]
         models = []
         for category in res:
             models.append(Category(**category))
-        submit_models(models=res)
+        submit_models(models=models)
         return res
     except ResponseCodeException as e:
         if e.status_code == 404:
