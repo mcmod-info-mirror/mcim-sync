@@ -206,3 +206,24 @@ class Fingerprint(Model):
     model_config = {
         "collection": "curseforge_fingerprints",
     }
+
+
+class Category(Model):
+    id: int = Field(primary_field=True, index=True)
+    gameId: int
+    name: str
+    slug: str
+    url: str
+    iconUrl: str
+    dateModified: str
+    isClass: Optional[bool] = None
+    classId: Optional[int] = None
+    parentCategoryId: Optional[int] = None
+    displayIndex: int
+
+    sync_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = {
+        "collection": "curseforge_categories",
+        "title": "CurseForge Category",
+    }

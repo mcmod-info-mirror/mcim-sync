@@ -3,6 +3,7 @@ from sync.tasks import (
     sync_curseforge_queue,
     refresh_modrinth_with_modify_date,
     refresh_curseforge_with_modify_date,
+    refresh_curseforge_categories,
     # send_statistics_to_telegram
 )
 
@@ -17,3 +18,6 @@ def test_refresh_modrinth_with_modify_date():
 
 def test_refresh_curseforge_with_modify_date():
     assert refresh_curseforge_with_modify_date()
+
+def test_refresh_curseforge_categories():
+    assert refresh_curseforge_categories()

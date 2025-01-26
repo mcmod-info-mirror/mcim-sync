@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 from odmantic import query
 import time
 
-from models.database.curseforge import File, Mod, Pagination, Fingerprint
+from models.database.curseforge import File, Mod, Pagination, Fingerprint, Category
 from models.database.file_cdn import File as FileCDN
 from models import ProjectDetail
 from utils.network import request
@@ -190,4 +190,16 @@ def fetch_mutil_fingerprints(fingerprints: List[int]):
         return res
     except Exception as e:
         log.error(f"Failed to fetch mutil fingerprints info: {e}")
+        return []
+
+def sync_categories() -> List[dict]:
+    try:
+        res = request(f"{API}/v1/categories", headers=HEADERS).json()["data"]
+        models = []
+        for category in res:
+            models.append(Category(**category))
+        submit_models(models=res)
+        return res
+    except Exception as e:
+        log.error(f"Failed to sync categories: {e}")
         return []

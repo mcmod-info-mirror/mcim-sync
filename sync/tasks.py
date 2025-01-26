@@ -9,8 +9,8 @@ from utils.telegram import (
     StatisticsNotification,
 )
 from config import Config
-from sync.curseforge import sync_mod, sync_mod_all_files
-from sync.modrinth import sync_project, sync_project_all_version
+from sync.curseforge import sync_mod, sync_categories
+from sync.modrinth import sync_project
 from sync.check import (
     # fetch_all_curseforge_data,
     # fetch_all_modrinth_data,
@@ -365,6 +365,12 @@ def sync_modrinth_queue() -> bool:
 
     return True
 
+
+def refresh_curseforge_categories() -> bool:
+    log.info("Start fetching curseforge categories.")
+    result = sync_categories()
+    log.info(f"CurseForge categories sync finished, total categories: {len(result)}")
+    return True
 
 def send_statistics_to_telegram() -> bool:
     log.info("Start fetching statistics to telegram.")
