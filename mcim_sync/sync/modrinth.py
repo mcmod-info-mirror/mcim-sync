@@ -53,7 +53,6 @@ def sync_project_all_version(
         res = request(f"{API}/v2/project/{project_id}/version").json()
     except ResponseCodeException as e:
         if e.status_code == 404:
-            # models.append(Project(id=project_id, slug=project_id))
             return
     except Exception as e:
         log.error(f"Failed to sync project {project_id} versions info: {e}")
@@ -66,7 +65,6 @@ def sync_project_all_version(
                 file["version_id"] = version["id"]
                 file["project_id"] = version["project_id"]
                 file_model = File(slug=slug, **file)
-                submitter.add(file_model)
                 if config.file_cdn:
                     if (
                         need_to_cache,
@@ -82,9 +80,10 @@ def sync_project_all_version(
                                 size=file_model.size,
                                 mtime=int(time.time()),
                                 path=file_model.hashes.sha1,
-                            )
+                            ) # type: ignore
                         )
-            # models.append(Version(slug=slug, **version))
+                        file_model.file_cdn_cached = True # 在这里设置 file_cdn_cached，默认为 False
+                submitter.add(file_model)
             submitter.add(Version(slug=slug, **version))
         # delete not found versions
         removed_count = mongodb_engine.remove(

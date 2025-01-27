@@ -27,10 +27,8 @@ def append_model_from_files_res(
     res,
     latestFiles: dict,
     need_to_cache: bool = True,
-    # ) -> List[Union[File, Fingerprint]]:
 ):
     with ModelSubmitter() as submitter:
-        models = []
         for file in res["data"]:
             for _hash in file["hashes"]:
                 if _hash["algo"] == 1:
@@ -38,15 +36,6 @@ def append_model_from_files_res(
                 elif _hash["algo"] == 2:
                     file["md5"] = _hash["value"]
             file_model = File(need_to_cache=need_to_cache, **file)
-            # models.append(file_model)
-            # models.append(
-            #     Fingerprint(
-            #         id=file["fileFingerprint"],
-            #         file=file,
-            #         latestFiles=latestFiles,
-            #     )
-            # )
-            submitter.add(file_model)
             submitter.add(
                 Fingerprint(
                     id=file["fileFingerprint"],
@@ -57,22 +46,13 @@ def append_model_from_files_res(
             # for file_cdn
             if config.file_cdn:
                 if (
-                    need_to_cache,
+                    need_to_cache, # classId filter (must be 6)
                     file_model.sha1 is not None
                     and file_model.gameId == 432
                     and file_model.fileLength <= MAX_LENGTH
                     and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
                     and file_model.downloadUrl is not None,
                 ):
-                    # models.append(
-                    #     FileCDN(
-                    #         sha1=file_model.sha1,
-                    #         url=file_model.downloadUrl,
-                    #         path=file_model.sha1,
-                    #         size=file_model.fileLength,
-                    #         mtime=int(time.time()),
-                    #     )
-                    # )
                     submitter.add(
                         FileCDN(
                             sha1=file_model.sha1,
@@ -80,8 +60,10 @@ def append_model_from_files_res(
                             path=file_model.sha1,
                             size=file_model.fileLength,
                             mtime=int(time.time()),
-                        )
+                        ) # type: ignore
                     )
+                    file_model.file_cdn_cached = True # 在这里设置 file_cdn_cached，默认为 False
+            submitter.add(file_model)
 
 
 def sync_mod_all_files(
