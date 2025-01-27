@@ -35,7 +35,7 @@ def append_model_from_files_res(
                     file["sha1"] = _hash["value"]
                 elif _hash["algo"] == 2:
                     file["md5"] = _hash["value"]
-            file_model = File(need_to_cache=need_to_cache, **file)
+            file_model = File(**file)
             submitter.add(
                 Fingerprint(
                     id=file["fileFingerprint"],
