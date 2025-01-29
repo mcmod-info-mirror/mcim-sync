@@ -140,7 +140,7 @@ class RefreshNotification(Notification):
 
     def send_to_telegram(self) -> int:
         sync_message = escape_markdown(
-            f"缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组", version=2
+            f"{self.platform} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组", version=2
         )
         # if self.projects_detail_info:
         #     sync_message += escape_markdown(

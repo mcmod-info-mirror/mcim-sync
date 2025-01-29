@@ -39,7 +39,7 @@ def refresh_curseforge_with_modify_date() -> bool:
             sync_mod,  # 需要 ProjectDetail 返回值
             curseforge_expired_modids,
             MAX_WORKERS,
-            "curseforge",
+            "refresh_curseforge",
         )
         projects_detail_info = []
         for future in as_completed(curseforge_futures):
@@ -87,7 +87,7 @@ def sync_curseforge_queue() -> bool:
         curseforge_pause_event.set()
         # pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
         pool, futures = create_tasks_pool(
-            sync_mod, new_modids, MAX_WORKERS, "curseforge"
+            sync_mod, new_modids, MAX_WORKERS, "sync_curseforge"
         )  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
 
         projects_detail_info = []

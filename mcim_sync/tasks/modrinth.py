@@ -38,7 +38,7 @@ def refresh_modrinth_with_modify_date() -> bool:
             sync_project,  # 需要 ProjectDetail 返回值
             modrinth_expired_data,
             MAX_WORKERS,
-            "modrinth",
+            "refresh_modrinth",
         )
 
         projects_detail_info = []
@@ -149,7 +149,7 @@ def sync_modrinth_queue() -> bool:
             sync_project,
             new_project_ids,
             MAX_WORKERS,
-            "modrinth",  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
+            "sync_modrinth",  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
         )
 
         projects_detail_info = []
