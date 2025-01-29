@@ -8,7 +8,7 @@ class CategoryInfo(BaseModel):
     id: int
     gameId: int
     name: str
-    slug: str
+    slug: Optional[str] = None  # stupid curseforge dev | For id 4591 and 236, slug is None
     url: str
     iconUrl: str
     dateModified: datetime
@@ -210,7 +210,7 @@ class Category(Model):
     id: int = Field(primary_field=True, index=True)
     gameId: int
     name: str
-    slug: str
+    slug: Optional[str] = None # stupid curseforge dev | For id 4591 and 236, slug is None
     url: str
     iconUrl: str
     dateModified: str
