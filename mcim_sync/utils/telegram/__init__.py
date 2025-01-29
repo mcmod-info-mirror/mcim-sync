@@ -124,6 +124,7 @@ class StatisticsNotification(Notification):
             f"同步源数量：{files_stats['sources']} 个\n"
             f"总文件数：{files_stats['totalFiles']} 个\n"
             f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
+            f"#Statistics"
         )
         final_message = f"{mcim_message}\n\n{files_message}"
         message_id = send_message_sync(final_message, chat_id=config.chat_id)
@@ -156,6 +157,11 @@ class RefreshNotification(Notification):
         #     sync_message += make_blockquote(mod_messages)
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
+        sync_message += (
+            "\n#Curseforge_Refresh"
+            if self.platform == "Curseforge"
+            else "\n#Modrinth_Refresh"
+        )
         message_id = send_message_sync(
             sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2"
         )
@@ -181,7 +187,10 @@ class SyncNotification(Notification):
         message = escape_markdown(
             (
                 f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据\n"
-                + f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
+                f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
+                f"#Curseforge_Sync"
+                if self.platform == "Curseforge"
+                else "#Modrinth_Sync"
             ),
             version=2,
         )
@@ -214,7 +223,10 @@ class CategoriesNotification(Notification):
         self.total_catached_count = total_catached_count
 
     def send_to_telegram(self) -> int:
-        message = f"已缓存 Curseforge Categories，共 {self.total_catached_count} 个分类"
+        message = (
+            f"已缓存 Curseforge Categories，共 {self.total_catached_count} 个分类\n"
+            "#Curseforge_Categories"
+        )
         message_id = send_message_sync(text=message, chat_id=config.chat_id)
         return message_id
 
@@ -237,9 +249,10 @@ class TagsNotification(Notification):
     def send_to_telegram(self) -> int:
         message = (
             f"已缓存 Modrinth Tags\n"
-            f"Categories 共 {self.categories_catached_count} 条"
-            f"Loaders 共 {self.loeaders_cached_count} 条"
-            f"Game_version 共 {self.game_versions_cached_count} 条"
+            f"Categories 共 {self.categories_catached_count} 条\n"
+            f"Loaders 共 {self.loeaders_cached_count} 条\n"
+            f"Game_version 共 {self.game_versions_cached_count} 条\n"
+            "#Modrinth_Tags"
         )
         message_id = send_message_sync(text=message, chat_id=config.chat_id)
         return message_id
