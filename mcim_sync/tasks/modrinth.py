@@ -6,9 +6,15 @@ from mcim_sync.utils.loger import log
 from mcim_sync.utils.telegram import (
     SyncNotification,
     RefreshNotification,
+    TagsNotification,
 )
 from mcim_sync.config import Config
-from mcim_sync.sync.modrinth import sync_project, sync_categories, sync_loaders, sync_game_versions
+from mcim_sync.sync.modrinth import (
+    sync_project,
+    sync_categories,
+    sync_loaders,
+    sync_game_versions,
+)
 from mcim_sync.checker.modrinth import (
     check_new_project_ids,
     check_modrinth_project_ids_available,
@@ -178,6 +184,7 @@ def sync_modrinth_queue() -> bool:
 
     return True
 
+
 def refresh_modrinth_tags():
     log.info("Start fetching modrinth tags.")
     category_count = len(sync_categories())
@@ -187,4 +194,12 @@ def refresh_modrinth_tags():
     game_version_count = len(sync_game_versions())
     log.info(f"Modrinth Game Version count: {game_version_count}")
     log.info("Modrinth tags sync finished.")
+
+    if config.telegram_bot:
+        TagsNotification(
+            categories_catached_count=category_count,
+            loaders_cached_count=loader_count,
+            game_versions_cached_count=game_version_count,
+        ).send_to_telegram()
+        log.info("All Message sent to telegram.")
     return True

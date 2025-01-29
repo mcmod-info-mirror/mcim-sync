@@ -6,6 +6,7 @@ from mcim_sync.utils.loger import log
 from mcim_sync.utils.telegram import (
     SyncNotification,
     RefreshNotification,
+    CategoriesNotification,
 )
 from mcim_sync.config import Config
 from mcim_sync.sync.curseforge import sync_mod, sync_categories
@@ -120,7 +121,15 @@ def sync_curseforge_queue() -> bool:
 def refresh_curseforge_categories() -> bool:
     log.info("Start fetching curseforge categories.")
     result = sync_categories(gameId=432)
-    log.info(f"CurseForge categories sync finished, total categories: {len(result)}")
+    total_catached_count = len(result)
+    log.info(
+        f"CurseForge categories sync finished, total categories: {total_catached_count}"
+    )
+
+    if config.telegram_bot:
+        CategoriesNotification(total_catached_count=total_catached_count).send_to_telegram()
+        log.info("All Message sent to telegram.")
+
     return True
 
 

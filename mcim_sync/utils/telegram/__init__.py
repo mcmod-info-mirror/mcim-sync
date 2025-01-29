@@ -75,8 +75,8 @@ def pin_message(message_id: int, chat_id: str) -> bool:
 
 class Notification(ABC):
     @abstractmethod
-    def send_to_telegram(self) -> int:
-        pass
+    def send_to_telegram(self):
+        raise NotImplementedError()
 
 
 def make_blockquote(lines: List[str], prefix: str = "> ") -> str:
@@ -130,6 +130,7 @@ class StatisticsNotification(Notification):
         pin_message(message_id, chat_id=config.chat_id)
         return message_id
 
+
 class RefreshNotification(Notification):
     platform: str
     projects_detail_info: List[ProjectDetail]
@@ -140,7 +141,8 @@ class RefreshNotification(Notification):
 
     def send_to_telegram(self) -> int:
         sync_message = escape_markdown(
-            f"{self.platform} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组", version=2
+            f"{self.platform} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组",
+            version=2,
         )
         # if self.projects_detail_info:
         #     sync_message += escape_markdown(
@@ -154,7 +156,9 @@ class RefreshNotification(Notification):
         #     sync_message += make_blockquote(mod_messages)
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
-        message_id = send_message_sync(sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2")
+        message_id = send_message_sync(
+            sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2"
+        )
         return message_id
 
 
@@ -181,7 +185,7 @@ class SyncNotification(Notification):
             ),
             version=2,
         )
-        
+
         if self.projects_detail_info:
             # mod_messages = []
             # message += escape_markdown(
@@ -200,4 +204,42 @@ class SyncNotification(Notification):
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
         )
+        return message_id
+
+
+class CategoriesNotification(Notification):
+    total_catached_count: int
+
+    def __init__(self, total_catached_count: int):
+        self.total_catached_count = total_catached_count
+
+    def send_to_telegram(self) -> int:
+        message = f"已缓存 Curseforge Categories，共 {self.total_catached_count} 个分类"
+        message_id = send_message_sync(text=message, chat_id=config.chat_id)
+        return message_id
+
+
+class TagsNotification(Notification):
+    categories_catached_count: int
+    loeaders_cached_count: int
+    game_versions_cached_count: int
+
+    def __init__(
+        self,
+        categories_catached_count: int,
+        loaders_cached_count: int,
+        game_versions_cached_count: int,
+    ):
+        self.categories_catached_count = categories_catached_count
+        self.loeaders_cached_count = loaders_cached_count
+        self.game_versions_cached_count = game_versions_cached_count
+
+    def send_to_telegram(self) -> int:
+        message = (
+            f"已缓存 Modrinth Tags\n"
+            f"Categories 共 {self.categories_catached_count} 条"
+            f"Loaders 共 {self.loeaders_cached_count} 条"
+            f"Game_version 共 {self.game_versions_cached_count} 条"
+        )
+        message_id = send_message_sync(text=message, chat_id=config.chat_id)
         return message_id
