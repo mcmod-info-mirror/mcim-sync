@@ -1,8 +1,17 @@
-x-logging: &default-logging
-  driver: "local"
+# x-logging: &default-logging
+#   driver: "local"
+#   options:
+#     max-size: "20m"
+#     max-file: "3"
+
+x-logging: &loki-logging
+  driver: loki
   options:
-    max-size: "20m"
-    max-file: "3"
+    loki-url: "http://localhost:3100/loki/api/v1/push"
+    max-size: "50m"
+    max-file: "10"
+    keep-file: true
+
 
 services:
   mcim_schedule_sync:
@@ -18,7 +27,7 @@ services:
       - ./config.json:/app/config.json
     command: >
       sh -c "python start.py"
-    logging: *default-logging
+    logging: *loki-logging
     deploy:
       resources:
         limits:
