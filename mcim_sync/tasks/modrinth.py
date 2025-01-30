@@ -3,6 +3,7 @@ import time
 from concurrent.futures import as_completed
 
 from mcim_sync.utils.loger import log
+from mcim_sync.utils.constans import Platform
 from mcim_sync.utils.telegram import (
     SyncNotification,
     RefreshNotification,
@@ -57,7 +58,7 @@ def refresh_modrinth_with_modify_date() -> bool:
 
         if config.telegram_bot:
             notification = RefreshNotification(
-                platform="Modrinth",
+                platform=Platform.MODRINTH,
                 projects_detail_info=projects_detail_info,
             )
             notification.send_to_telegram()
@@ -174,7 +175,7 @@ def sync_modrinth_queue() -> bool:
 
         if config.telegram_bot:
             notice = SyncNotification(
-                platform="modrinth",
+                platform=Platform.MODRINTH,
                 projects_detail_info=projects_detail_info,
                 total_catached_count=len(project_ids),
             )

@@ -9,6 +9,7 @@ from mcim_sync.utils.network import request
 from mcim_sync.models import ProjectDetail
 from mcim_sync.config import Config
 from mcim_sync.utils.loger import log
+from mcim_sync.utils.constans import Platform
 
 config = Config.load()
 
@@ -133,10 +134,10 @@ class StatisticsNotification(Notification):
 
 
 class RefreshNotification(Notification):
-    platform: str
+    platform: Platform
     projects_detail_info: List[ProjectDetail]
 
-    def __init__(self, platform: str, projects_detail_info: List[ProjectDetail]):
+    def __init__(self, platform: Platform, projects_detail_info: List[ProjectDetail]):
         self.platform = platform
         self.projects_detail_info = projects_detail_info
 
@@ -159,7 +160,7 @@ class RefreshNotification(Notification):
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
         sync_message += (
             "\n#Curseforge_Refresh"
-            if self.platform == "Curseforge"
+            if self.platform == Platform.CURSEFORGE
             else "\n#Modrinth_Refresh"
         )
         message_id = send_message_sync(
@@ -169,13 +170,13 @@ class RefreshNotification(Notification):
 
 
 class SyncNotification(Notification):
-    platform: str
+    platform: Platform
     total_catached_count: int
     projects_detail_info: List[ProjectDetail]
 
     def __init__(
         self,
-        platform: str,
+        platform: Platform,
         total_catached_count: int,
         projects_detail_info: List[ProjectDetail],
     ):
@@ -186,11 +187,8 @@ class SyncNotification(Notification):
     def send_to_telegram(self) -> int:
         message = escape_markdown(
             (
-                f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform} 的模组数据\n"
+                f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform.value} 的模组数据\n"
                 f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
-                f"#Curseforge_Sync"
-                if self.platform == "Curseforge"
-                else "#Modrinth_Sync"
             ),
             version=2,
         )
@@ -209,7 +207,9 @@ class SyncNotification(Notification):
 
             # message += make_blockquote(mod_messages)
             message += make_project_detail_blockquote(self.projects_detail_info)
-
+        message += (
+            f"\n#Curseforge_Sync" if self.platform == Platform.CURSEFORGE else "\n#Modrinth_Sync"
+        )
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
         )

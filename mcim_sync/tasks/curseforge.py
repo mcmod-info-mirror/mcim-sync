@@ -3,6 +3,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mcim_sync.utils.loger import log
+from mcim_sync.utils.constans import Platform
 from mcim_sync.utils.telegram import (
     SyncNotification,
     RefreshNotification,
@@ -52,7 +53,7 @@ def refresh_curseforge_with_modify_date() -> bool:
 
         if config.telegram_bot:
             notification = RefreshNotification(
-                platform="Curseforge",
+                platform=Platform.CURSEFORGE,
                 projects_detail_info=projects_detail_info,
             )
             notification.send_to_telegram()
@@ -106,7 +107,7 @@ def sync_curseforge_queue() -> bool:
 
         if config.telegram_bot:
             notice = SyncNotification(
-                platform="curseforge",
+                platform=Platform.CURSEFORGE,
                 projects_detail_info=projects_detail_info,
                 total_catached_count=len(modids),
             )
