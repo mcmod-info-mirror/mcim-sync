@@ -10,7 +10,7 @@ x-logging: &loki-logging
     loki-url: "http://localhost:3100/loki/api/v1/push"
     max-size: "50m"
     max-file: "10"
-    keep-file: true
+    keep-file: "true"
 
 
 services:
