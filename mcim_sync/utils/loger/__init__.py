@@ -1,9 +1,9 @@
-import os
-import sys
-import logging
 from types import FrameType
 from typing import cast
 from loguru import logger
+import os
+import sys
+import logging
 import time
 
 from mcim_sync.config import Config
@@ -17,9 +17,16 @@ LOG_PATH = config.log_path
 if config.log_to_file:
     os.makedirs(LOG_PATH, exist_ok=True)
 
-ENABLED: bool = False
-
 EXCLUDED_KEYWORDS = ["httpx"]
+
+
+LOGGING_FORMAT = "<green>{time:YYYYMMDD HH:mm:ss}</green> | "  # 颜色>时间
+"{process.name} | "  # 进程名
+"{thread.name} | "  # 进程名
+"<cyan>{module}</cyan>.<cyan>{function}</cyan> | "  # 模块名.方法名
+":<cyan>{line}</cyan> | "  # 行号
+"<level>{level}</level>: "  # 等级
+"<level>{message}</level>"  # 日志内容
 
 
 def filter(record) -> bool:
@@ -52,26 +59,18 @@ class Logger:
         # 添加控制台输出的格式,sys.stdout为输出到屏幕;关于这些配置还需要自定义请移步官网查看相关参数说明
         self.logger.add(
             sys.stdout,
-            format="<green>{time:YYYYMMDD HH:mm:ss}</green> | "  # 颜色>时间
-            #    "{process.name} | "  # 进程名
-            #    "{thread.name} | "  # 进程名
-            "<cyan>{module}</cyan>.<cyan>{function}</cyan> | "  # 模块名.方法名
-            #    ":<cyan>{line}</cyan> | "  # 行号
-            "<level>{level}</level>: "  # 等级
-            "<level>{message}</level>",  # 日志内容
+            format=LOGGING_FORMAT,
             level="INFO" if not config.debug else "DEBUG",
             backtrace=False,
             diagnose=False,
             filter=filter,
+            serialize=True,
         )
         if config.log_to_file:
             # 日志写入文件
             self.logger.add(
                 log_path,  # 写入目录指定文件
-                format="{time:YYYYMMDD HH:mm:ss} - "  # 时间
-                #    "{process.name} | "  # 进程名
-                #    "{thread.name} | "  # 进程名
-                "{module}.{function}:{line} - {level} -{message}",  # 模块名.方法名:行号
+                format=LOGGING_FORMAT,
                 encoding="utf-8",
                 retention="7 days",  # 设置历史保留时长
                 backtrace=True,  # 回溯
