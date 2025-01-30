@@ -1,6 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import datetime
+import time
 
 from mcim_sync.database.mongodb import init_mongodb_syncengine
 from mcim_sync.database._redis import init_redis_syncengine
@@ -85,7 +86,7 @@ def main():
 
     try:
         while True:
-            pass
+            time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
         log.info(f"Scheduler shutdown")
