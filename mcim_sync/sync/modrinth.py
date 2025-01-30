@@ -22,12 +22,12 @@ from mcim_sync.models.database.modrinth import (
     GameVersion,
 )
 from mcim_sync.models.database.file_cdn import File as FileCDN
-from mcim_sync.models import ProjectDetail
+from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.utils.network import request
 from mcim_sync.exceptions import ResponseCodeException
 from mcim_sync.config import Config
 from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
-from mcim_sync.utils import ModelSubmitter
+from mcim_sync.utils.model_submitter import ModelSubmitter
 from mcim_sync.utils.loger import log
 
 

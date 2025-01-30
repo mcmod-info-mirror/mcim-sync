@@ -8,7 +8,7 @@ from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 from mcim_sync.models.database.modrinth import Project
 from mcim_sync.sync.modrinth import fetch_mutil_projects_info
-from mcim_sync.utils import ModelSubmitter
+from mcim_sync.utils.model_submitter import ModelSubmitter
 
 from mcim_sync.queues.modrinth import (
     fetch_modrinth_project_ids_queue,

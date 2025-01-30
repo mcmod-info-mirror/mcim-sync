@@ -17,7 +17,7 @@ from mcim_sync.queues.curseforge import (
     fetch_curseforge_fileids_queue,
     fetch_curseforge_fingerprints_queue,
 )
-from mcim_sync.utils import ModelSubmitter
+from mcim_sync.utils.model_submitter import ModelSubmitter
 
 config = Config.load()
 

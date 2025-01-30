@@ -1,2 +1,0 @@
-
-from mcim_sync.utils.model_submitter import ModelSubmitter

@@ -6,10 +6,9 @@ from telegram.helpers import escape_markdown
 
 
 from mcim_sync.utils.network import request
-from mcim_sync.models import ProjectDetail
 from mcim_sync.config import Config
 from mcim_sync.utils.loger import log
-from mcim_sync.utils.constans import Platform
+from mcim_sync.utils.constans import Platform, ProjectDetail
 
 config = Config.load()
 
