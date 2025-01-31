@@ -123,7 +123,7 @@ class StatisticsNotification(Notification):
             f"当日全网总流量：{files_stats['today']['bytes'] / 1024 / 1024 / 1024:.2f} GB\n"
             f"同步源数量：{files_stats['sources']} 个\n"
             f"总文件数：{files_stats['totalFiles']} 个\n"
-            f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024/ 1024:.2f} TB\n"
+            f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024 / 1024:.2f} TB\n"
             f"#Statistics"
         )
         final_message = f"{mcim_message}\n\n{files_message}"
@@ -157,11 +157,11 @@ class RefreshNotification(Notification):
         #     sync_message += make_blockquote(mod_messages)
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
-        sync_message += (
+        sync_message += escape_markdown(text=(
             "\n#Curseforge_Refresh"
             if self.platform == Platform.CURSEFORGE
             else "\n#Modrinth_Refresh"
-        )
+        ))
         message_id = send_message_sync(
             sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2"
         )
@@ -206,8 +206,12 @@ class SyncNotification(Notification):
 
             # message += make_blockquote(mod_messages)
             message += make_project_detail_blockquote(self.projects_detail_info)
-        message += (
-            f"\n#Curseforge_Sync" if self.platform == Platform.CURSEFORGE else "\n#Modrinth_Sync"
+        message += escape_markdown(
+            text=(
+                "\n#Curseforge_Sync"
+                if self.platform == Platform.CURSEFORGE
+                else "\n#Modrinth_Sync"
+            )
         )
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
