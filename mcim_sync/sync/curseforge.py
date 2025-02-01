@@ -22,7 +22,7 @@ from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
-from utils import find_hash_in_curseforge_hashes
+from mcim_sync.utils import find_hash_in_curseforge_hashes
 from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
 from mcim_sync.config import Config
 from mcim_sync.exceptions import ResponseCodeException
