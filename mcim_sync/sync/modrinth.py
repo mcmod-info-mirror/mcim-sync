@@ -67,11 +67,11 @@ def sync_project_all_version(
                 file_model = File(slug=slug, **file)
                 if config.file_cdn:
                     if (
-                        need_to_cache,
-                        file_model.size <= MAX_LENGTH
+                        need_to_cache
+                        and file_model.size <= MAX_LENGTH
                         and file_model.filename
                         and file_model.url
-                        and file_model.hashes.sha1,
+                        and file_model.hashes.sha1
                     ):
                         submitter.add(
                             FileCDN(
@@ -80,9 +80,11 @@ def sync_project_all_version(
                                 size=file_model.size,
                                 mtime=int(time.time()),
                                 path=file_model.hashes.sha1,
-                            ) # type: ignore
+                            )  # type: ignore
                         )
-                        file_model.file_cdn_cached = True # 在这里设置 file_cdn_cached，默认为 False
+                        file_model.file_cdn_cached = (
+                            True  # 在这里设置 file_cdn_cached，默认为 False
+                        )
                 submitter.add(file_model)
             submitter.add(Version(slug=slug, **version))
         # delete not found versions
@@ -119,7 +121,9 @@ def sync_project(project_id: str) -> ProjectDetail:
                 slug=res["slug"],
                 need_to_cache=project_model.project_type == "mod",
             )
-            return ProjectDetail(id=project_id, name=res["slug"], version_count=total_count)
+            return ProjectDetail(
+                id=project_id, name=res["slug"], version_count=total_count
+            )
     except ResponseCodeException as e:
         if e.status_code == 404:
             # models.append(Project(id=project_id, slug=project_id))
@@ -127,12 +131,13 @@ def sync_project(project_id: str) -> ProjectDetail:
     except Exception as e:
         log.error(f"Failed to sync project {project_id} info: {e}")
         return
-    
 
 
 def fetch_mutil_projects_info(project_ids: List[str]):
     try:
-        res = request(f"{API}/v2/projects", params={"ids": json.dumps(project_ids)}).json()
+        res = request(
+            f"{API}/v2/projects", params={"ids": json.dumps(project_ids)}
+        ).json()
         return res
     except ResponseCodeException as e:
         if e.status_code == 404:
@@ -144,7 +149,9 @@ def fetch_mutil_projects_info(project_ids: List[str]):
 
 def fetch_multi_versions_info(version_ids: List[str]):
     try:
-        res = request(f"{API}/v2/versions", params={"ids": json.dumps(version_ids)}).json()
+        res = request(
+            f"{API}/v2/versions", params={"ids": json.dumps(version_ids)}
+        ).json()
         return res
     except ResponseCodeException as e:
         if e.status_code == 404:

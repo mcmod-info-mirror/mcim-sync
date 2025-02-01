@@ -2,12 +2,19 @@ from typing import List, Optional, Union
 from odmantic import query
 import time
 
-from mcim_sync.models.database.curseforge import File, Mod, Pagination, Fingerprint, Category
+from mcim_sync.models.database.curseforge import (
+    File,
+    Mod,
+    Pagination,
+    Fingerprint,
+    Category,
+)
 from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.utils.network import request
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
+from utils import find_hash_in_curseforge_hashes
 from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
 from mcim_sync.config import Config
 from mcim_sync.exceptions import ResponseCodeException
@@ -30,11 +37,6 @@ def append_model_from_files_res(
 ):
     with ModelSubmitter() as submitter:
         for file in res["data"]:
-            for _hash in file["hashes"]:
-                if _hash["algo"] == 1:
-                    file["sha1"] = _hash["value"]
-                elif _hash["algo"] == 2:
-                    file["md5"] = _hash["value"]
             file_model = File(**file)
             submitter.add(
                 Fingerprint(
@@ -43,26 +45,35 @@ def append_model_from_files_res(
                     latestFiles=latestFiles,
                 )
             )
+            file_sha1 = find_hash_in_curseforge_hashes(file["hashes"], 1)
             # for file_cdn
             if config.file_cdn:
                 if (
-                    need_to_cache, # classId filter (must be 6)
-                    file_model.sha1 is not None
-                    and file_model.gameId == 432
-                    and file_model.fileLength <= MAX_LENGTH
-                    and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
-                    and file_model.downloadUrl is not None,
+                    file_model.fileLength is not None
+                    and file_model.downloadCount is not None
+                    and file_model.downloadUrl is not None
+                    and file_sha1
                 ):
-                    submitter.add(
-                        FileCDN(
-                            sha1=file_model.sha1,
-                            url=file_model.downloadUrl,
-                            path=file_model.sha1,
-                            size=file_model.fileLength,
-                            mtime=int(time.time()),
-                        ) # type: ignore
-                    )
-                    file_model.file_cdn_cached = True # 在这里设置 file_cdn_cached，默认为 False
+                    if (
+                        need_to_cache  # classId filter (must be 6)
+                        # file_model.sha1 is not None
+                        and file_model.gameId == 432
+                        and file_model.fileLength <= MAX_LENGTH
+                        and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
+                    ):
+                        submitter.add(
+                            FileCDN(
+                                # sha1=file_model.sha1,
+                                sha1=file_sha1,
+                                url=file_model.downloadUrl,
+                                path=file_model.sha1,
+                                size=file_model.fileLength,
+                                mtime=int(time.time()),
+                            )  # type: ignore
+                        )
+                        file_model.file_cdn_cached = (
+                            True  # 在这里设置 file_cdn_cached，默认为 False
+                        )
             submitter.add(file_model)
 
 
@@ -91,14 +102,12 @@ def sync_mod_all_files(
                 params=params,
             ).json()
 
-            append_model_from_files_res(
-                res, latestFiles, need_to_cache=need_to_cache
-            )
+            append_model_from_files_res(res, latestFiles, need_to_cache=need_to_cache)
             file_id_list.extend([file["id"] for file in res["data"]])
 
             page = Pagination(**res["pagination"])
             log.debug(
-                f'Sync curseforge modid:{modId} index:{params["index"]} ps:{params["pageSize"]} total:{page.totalCount}'
+                f"Sync curseforge modid:{modId} index:{params['index']} ps:{params['pageSize']} total:{page.totalCount}"
             )
 
             if page.index >= page.totalCount - 1:
@@ -141,7 +150,7 @@ def sync_mod(modId: int) -> ProjectDetail:
                 name=res["name"],
                 version_count=total_count,
             )
-            
+
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
