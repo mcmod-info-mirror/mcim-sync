@@ -64,7 +64,7 @@ def sync_project_all_version(
             for file in version["files"]:
                 file["version_id"] = version["id"]
                 file["project_id"] = version["project_id"]
-                file_model = File(slug=slug, **file)
+                file_model = File(**file)
                 if config.file_cdn:
                     if (
                         need_to_cache

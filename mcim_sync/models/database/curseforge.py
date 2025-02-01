@@ -100,8 +100,6 @@ class File(Model):
     modules: Optional[List[Module]] = None
 
     file_cdn_cached: bool = False
-    sha1: Optional[str] = None
-    md5: Optional[str] = None
 
     sync_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -137,8 +135,6 @@ class FileInfo(BaseModel):
     earlyAccessEndDate: Optional[datetime] = None
     fileFingerprint: Optional[int] = None
     modules: Optional[List[Module]] = None
-    sha1: Optional[str] = None
-    md5: Optional[str] = None
 
 
 class FileIndex(BaseModel):

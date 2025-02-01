@@ -66,7 +66,8 @@ def append_model_from_files_res(
                                 # sha1=file_model.sha1,
                                 sha1=file_sha1,
                                 url=file_model.downloadUrl,
-                                path=file_model.sha1,
+                                # path=file_model.sha1,
+                                path=file_sha1,
                                 size=file_model.fileLength,
                                 mtime=int(time.time()),
                             )  # type: ignore
