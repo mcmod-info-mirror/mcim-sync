@@ -144,7 +144,7 @@ class RefreshNotification(Notification):
 
     def send_to_telegram(self) -> int:
         sync_message = escape_markdown(
-            f"{self.platform} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组",
+            f"{self.platform.value} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组",
         )
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
