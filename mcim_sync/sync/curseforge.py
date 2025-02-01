@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+from tenacity import retry, stop_after_attempt, wait_fixed
 from odmantic import query
 import time
 
@@ -9,9 +10,16 @@ from mcim_sync.models.database.curseforge import (
     Fingerprint,
     Category,
 )
+from mcim_sync.apis.curseforge import (
+    get_mod,
+    get_mod_files,
+    get_categories,
+    get_mutil_files,
+    get_mutil_fingerprints,
+    get_mutil_mods_info,
+)
 from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
-from mcim_sync.utils.network import request
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
 from utils import find_hash_in_curseforge_hashes
@@ -31,9 +39,7 @@ HEADERS = {
 
 
 def append_model_from_files_res(
-    res,
-    latestFiles: dict,
-    need_to_cache: bool = True,
+    res, latestFiles: List[dict], need_to_cache: bool = True
 ):
     with ModelSubmitter() as submitter:
         for file in res["data"]:
@@ -42,11 +48,11 @@ def append_model_from_files_res(
                 Fingerprint(
                     id=file["fileFingerprint"],
                     file=file,
-                    latestFiles=latestFiles,
+                    latestFiles=latestFiles,  # type: ignore
                 )
             )
             file_sha1 = find_hash_in_curseforge_hashes(file["hashes"], 1)
-            # for file_cdn
+
             if config.file_cdn:
                 if (
                     file_model.fileLength is not None
@@ -55,174 +61,131 @@ def append_model_from_files_res(
                     and file_sha1
                 ):
                     if (
-                        need_to_cache  # classId filter (must be 6)
-                        # file_model.sha1 is not None
+                        need_to_cache
                         and file_model.gameId == 432
                         and file_model.fileLength <= MAX_LENGTH
                         and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
                     ):
                         submitter.add(
                             FileCDN(
-                                # sha1=file_model.sha1,
                                 sha1=file_sha1,
                                 url=file_model.downloadUrl,
-                                # path=file_model.sha1,
                                 path=file_sha1,
                                 size=file_model.fileLength,
                                 mtime=int(time.time()),
                             )  # type: ignore
                         )
-                        file_model.file_cdn_cached = (
-                            True  # 在这里设置 file_cdn_cached，默认为 False
-                        )
+                        file_model.file_cdn_cached = True
             submitter.add(file_model)
 
 
 def sync_mod_all_files(
-    modId: int,
-    latestFiles: List[dict],
-    need_to_cache: bool = True,
-) -> List[Union[File, Mod]]:
-    models = []
-    if not latestFiles:
-        mod_model = mongodb_engine.find_one(Mod, Mod.id == modId)
-        if mod_model:
-            latestFiles = mod_model.latestFiles
-            need_to_cache = mod_model.classId == 6
-        else:
-            raise Exception("latestFiles is required when mod not in database")
+    modId: int, latestFiles: List[dict], need_to_cache: bool = True
+) -> int:
+    params = {"index": 0, "pageSize": 50}
+    file_id_list = []
 
-    try:
-        params = {"index": 0, "pageSize": 50}
-        file_id_list = []
-
-        while True:
-            res = request(
-                f"{API}/v1/mods/{modId}/files",
-                headers=HEADERS,
-                params=params,
-            ).json()
-
-            append_model_from_files_res(res, latestFiles, need_to_cache=need_to_cache)
-            file_id_list.extend([file["id"] for file in res["data"]])
-
-            page = Pagination(**res["pagination"])
-            log.debug(
-                f"Sync curseforge modid:{modId} index:{params['index']} ps:{params['pageSize']} total:{page.totalCount}"
-            )
-
-            if page.index >= page.totalCount - 1:
-                break
-
-            params["index"] = page.index + page.pageSize
-
-        removed_count = mongodb_engine.remove(
-            File, File.modId == modId, query.not_in(File.id, file_id_list)
+    while True:
+        res = get_mod_files(modId, params["index"], params["pageSize"])
+        append_model_from_files_res(
+            res, latestFiles=latestFiles, need_to_cache=need_to_cache
         )
-        log.info(
-            f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files"
+        file_id_list.extend([file["id"] for file in res["data"]])
+
+        page = Pagination(**res["pagination"])
+        log.debug(
+            f"Sync curseforge modid:{modId} index:{params['index']} ps:{params['pageSize']} total:{page.totalCount}"
         )
 
-        return page.totalCount
+        if page.index >= page.totalCount - 1:
+            break
 
-    except ResponseCodeException as e:
-        if e.status_code == 404:
-            log.error(f"Mod {modId} not found!")
-        else:
-            log.error(f"Sync mod {modId} failed, {e}")
-    except Exception as e:
-        log.error(f"Sync mod {modId} failed, {e}")
+        params["index"] = page.index + page.pageSize
 
-    return models
+    removed_count = mongodb_engine.remove(
+        File, File.modId == modId, query.not_in(File.id, file_id_list)
+    )
+    log.info(
+        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files"
+    )
+
+    return page.totalCount
 
 
-def sync_mod(modId: int) -> ProjectDetail:
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def sync_mod(modId: int) -> Optional[ProjectDetail]:
     try:
         with ModelSubmitter() as submitter:
-            res = request(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
-            total_count = sync_mod_all_files(
+            res = get_mod(modId)
+            submitter.add(Mod(**res))
+            sync_mod_all_files(
                 modId,
-                latestFiles=res["latestFiles"],  # 此处调用必传 latestFiles
+                latestFiles=res["latestFiles"],
                 need_to_cache=True if res["classId"] == 6 else False,
             )
-            submitter.add(Mod(**res))
             return ProjectDetail(
                 id=res["id"],
                 name=res["name"],
-                version_count=total_count,
+                version_count=len(res["latestFiles"]),
             )
-
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
-    except Exception as e:
-        log.error(f"Sync mod {modId} failed, {e}")
+        else:
+            raise e
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def fetch_mutil_mods_info(modIds: List[int]):
     modIds = list(set(modIds))
-    data = {"modIds": modIds}
     try:
-        res = request(
-            method="POST", url=f"{API}/v1/mods", json=data, headers=HEADERS
-        ).json()["data"]
+        res = get_mutil_mods_info(modIds)
         return res
     except Exception as e:
         log.error(f"Failed to fetch mutil mods info: {e}")
-        return []
+        return None
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def fetch_mutil_files(fileIds: List[int]):
     fileIds = list(set(fileIds))
-    data = {"fileIds": fileIds}
     try:
-        res = request(
-            method="POST", url=f"{API}/v1/mods/files", json=data, headers=HEADERS
-        ).json()["data"]
+        res = get_mutil_files(fileIds)
         return res
     except Exception as e:
         log.error(f"Failed to fetch mutil files info: {e}")
-        return []
+        return None
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def fetch_mutil_fingerprints(fingerprints: List[int]):
+    fingerprints = list(set(fingerprints))
     try:
-        res = request(
-            method="POST",
-            url=f"{API}/v1/fingerprints/432",
-            headers=HEADERS,
-            json={"fingerprints": fingerprints},
-        ).json()["data"]
+        res = get_mutil_fingerprints(fingerprints)
         return res
     except Exception as e:
         log.error(f"Failed to fetch mutil fingerprints info: {e}")
-        return []
+        return None
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_categories(
     gameId: int = 432, classId: Optional[int] = None, classOnly: Optional[bool] = None
-) -> List[Category]:
+) -> Optional[List[dict]]:
     try:
         with ModelSubmitter() as submitter:
-            params = {"gameId": gameId}
             if classId is not None:
-                params["classId"] = classId
+                res = get_categories(gameId, classId=classId)
             elif classOnly:
-                params["classOnly"] = classOnly
-            res = request(
-                f"{API}/v1/categories",
-                params=params,
-                headers=HEADERS,
-            ).json()["data"]
+                res = get_categories(gameId, classOnly=classOnly)
+            else:
+                res = get_categories(gameId)
             for category in res:
                 submitter.add(Category(**category))
             return res
     except ResponseCodeException as e:
         if e.status_code == 404:
-            log.error(f"Categories not found!")
+            log.error("Categories not found!")
+            return None
         else:
-            log.error(f"Failed to sync categories: {e}")
-        return []
-    except Exception as e:
-        log.error(f"Failed to sync categories: {e}")
-        return []
+            raise e

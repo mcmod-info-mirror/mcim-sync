@@ -34,7 +34,7 @@ def refresh_curseforge_with_modify_date() -> bool:
         curseforge_expired_modids = fetch_expired_curseforge_data()
 
         log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
-        log.info(f"Start syncing CurseForge expired data...")
+        log.info("Start syncing CurseForge expired data...")
 
         curseforge_pause_event.set()
         curseforge_pool, curseforge_futures = create_tasks_pool(

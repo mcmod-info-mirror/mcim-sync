@@ -8,9 +8,9 @@ sync_project 只刷新 project 信息，不刷新 project 下的 version 信息
 刷新 project 信息后，会刷新 project 下的所有 version 信息，以及 version 下的所有 file 信息，不刷新 project 自身信息
 """
 
+from tenacity import retry, stop_after_attempt, wait_fixed
 from typing import List, Optional, Union
 from odmantic import query
-import json
 import time
 
 from mcim_sync.models.database.modrinth import (
@@ -21,9 +21,18 @@ from mcim_sync.models.database.modrinth import (
     Loader,
     GameVersion,
 )
+from mcim_sync.apis.modrinth import (
+    get_project,
+    get_project_all_version,
+    get_categories,
+    get_loaders,
+    get_game_versions,
+    get_mutil_projects_info,
+    get_multi_hashes_info,
+    get_multi_versions_info,
+)
 from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
-from mcim_sync.utils.network import request
 from mcim_sync.exceptions import ResponseCodeException
 from mcim_sync.config import Config
 from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
@@ -37,27 +46,10 @@ API = config.modrinth_api
 MAX_LENGTH = config.max_file_size
 
 
-def sync_project_all_version(
-    project_id: str,
-    slug: str,
-    need_to_cache: bool = True,
-) -> int:
-    if not slug:
-        project = mongodb_engine.find_one(Project, Project.id == project_id)
-        if project:
-            slug = project.slug
-        else:
-            raise Exception(f"Slug is required when project not in database")
-
-    try:
-        res = request(f"{API}/v2/project/{project_id}/version").json()
-    except ResponseCodeException as e:
-        if e.status_code == 404:
-            return
-    except Exception as e:
-        log.error(f"Failed to sync project {project_id} versions info: {e}")
-        return
+def sync_project_all_version(project_id: str, need_to_cache: bool = True) -> int:
+    res = get_project_all_version(project_id)
     latest_version_id_list = []
+
     with ModelSubmitter() as submitter:
         for version in res:
             latest_version_id_list.append(version["id"])
@@ -82,12 +74,10 @@ def sync_project_all_version(
                                 path=file_model.hashes.sha1,
                             )  # type: ignore
                         )
-                        file_model.file_cdn_cached = (
-                            True  # 在这里设置 file_cdn_cached，默认为 False
-                        )
+                        file_model.file_cdn_cached = True
                 submitter.add(file_model)
-            submitter.add(Version(slug=slug, **version))
-        # delete not found versions
+            submitter.add(Version(**version))
+
         removed_count = mongodb_engine.remove(
             Version,
             query.not_in(Version.id, latest_version_id_list),
@@ -97,28 +87,18 @@ def sync_project_all_version(
         log.info(
             f"Finished sync project {project_id} versions info, total {total_count} versions, removed {removed_count} versions"
         )
-
         return total_count
 
 
-def sync_project(project_id: str) -> ProjectDetail:
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def sync_project(project_id: str) -> Optional[ProjectDetail]:
     try:
+        res = get_project(project_id)
         with ModelSubmitter() as submitter:
-            res = request(f"{API}/v2/project/{project_id}").json()
             project_model = Project(**res)
             submitter.add(project_model)
-            # models.append(project_model)
-            # db_project = mongodb_engine.find_one(Project, Project.id == project_id)
-            # if db_project is not None:
-            #     # check updated
-            #     if db_project.updated != res["updated"]:
-            #         models.append(Project(**res))
-            #         sync_project_all_version(project_id, slug=res["slug"])
-            #     else:
-            #         return
             total_count = sync_project_all_version(
                 project_id,
-                slug=res["slug"],
                 need_to_cache=project_model.project_type == "mod",
             )
             return ProjectDetail(
@@ -126,79 +106,67 @@ def sync_project(project_id: str) -> ProjectDetail:
             )
     except ResponseCodeException as e:
         if e.status_code == 404:
-            # models.append(Project(id=project_id, slug=project_id))
-            log.error(f"Project {project_id} not found!")
-    except Exception as e:
-        log.error(f"Failed to sync project {project_id} info: {e}")
-        return
+            log.error(f"Project {project_id} not found")
+            return None
+        else:
+            raise e
 
 
-def fetch_mutil_projects_info(project_ids: List[str]):
-    try:
-        res = request(
-            f"{API}/v2/projects", params={"ids": json.dumps(project_ids)}
-        ).json()
-        return res
-    except ResponseCodeException as e:
-        if e.status_code == 404:
-            return []
-    except Exception as e:
-        log.error(f"Failed to fetch projects info: {e}")
-        return []
-
-
-def fetch_multi_versions_info(version_ids: List[str]):
-    try:
-        res = request(
-            f"{API}/v2/versions", params={"ids": json.dumps(version_ids)}
-        ).json()
-        return res
-    except ResponseCodeException as e:
-        if e.status_code == 404:
-            return []
-    except Exception as e:
-        log.error(f"Failed to fetch versions info: {e}")
-        return []
-
-
-def fetch_multi_hashes_info(hashes: List[str], algorithm: str):
-    try:
-        res = request(
-            method="POST",
-            url=f"{API}/v2/version_files",
-            json={"hashes": hashes, "algorithm": algorithm},
-        ).json()
-        return res
-    except ResponseCodeException as e:
-        if e.status_code == 404:
-            return {}
-    except Exception as e:
-        log.error(f"Failed to fetch hashes info: {e}")
-        return {}
-
-
-def sync_categories():
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def sync_categories() -> List[dict]:
     mongodb_engine.remove(Category)
     with ModelSubmitter() as submitter:
-        categories = request(f"{API}/v2/tag/category").json()
+        categories = get_categories()
         for category in categories:
             submitter.add(Category(**category))
     return categories
 
 
-def sync_loaders():
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def sync_loaders() -> List[dict]:
     mongodb_engine.remove(Loader)
     with ModelSubmitter() as submitter:
-        loaders = request(f"{API}/v2/tag/loader").json()
+        loaders = get_loaders()
         for loader in loaders:
             submitter.add(Loader(**loader))
     return loaders
 
 
-def sync_game_versions():
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def sync_game_versions() -> List[dict]:
     mongodb_engine.remove(GameVersion)
     with ModelSubmitter() as submitter:
-        game_versions = request(f"{API}/v2/tag/game_version").json()
+        game_versions = get_game_versions()
         for game_version in game_versions:
             submitter.add(GameVersion(**game_version))
     return game_versions
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def fetch_mutil_projects_info(project_ids: List[str]) -> Optional[List[dict]]:
+    try:
+        res = get_mutil_projects_info(project_ids)
+        return res
+    except Exception as e:
+        log.error(f"Failed to fetch mutil projects info: {e}")
+        return None
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def fetch_multi_hashes_info(hashes: List[str], algorithm: str) -> Optional[dict]:
+    try:
+        res = get_multi_hashes_info(hashes, algorithm)
+        return res
+    except Exception as e:
+        log.error(f"Failed to fetch mutil hashes info: {e}")
+        return None
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def fetch_multi_versions_info(version_ids: List[str]) -> Optional[List[dict]]:
+    try:
+        res = get_multi_versions_info(version_ids)
+        return res
+    except Exception as e:
+        log.error(f"Failed to fetch mutil versions info: {e}")
+        return None

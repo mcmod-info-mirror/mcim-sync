@@ -1,13 +1,10 @@
 from typing import Union, List, Set
-from odmantic import query
 import datetime
-import time
 
 from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
 from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 from mcim_sync.models.database.modrinth import Project
-from mcim_sync.sync.modrinth import fetch_mutil_projects_info
 from mcim_sync.utils.model_submitter import ModelSubmitter
 
 from mcim_sync.queues.modrinth import (
@@ -34,34 +31,36 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
         project.id: {"sync_date": project.updated, "versions": project.versions}
         for project in projects
     }
-    info = fetch_mutil_projects_info(project_ids=[project.id for project in projects])
     expired_project_ids: Set[str] = set()
-    with ModelSubmitter() as submitter:
-        for project in info:
-            submitter.add(Project(**project))
-            project_id = project["id"]
-            sync_date: datetime.datetime = project_info[project_id][
-                "sync_date"
-            ].replace(tzinfo=None)
-            project_info[project_id]["source_date"] = project["updated"]
-            updated_date = datetime.datetime.fromisoformat(project["updated"]).replace(
-                tzinfo=None
-            )
-            if int(sync_date.timestamp()) == int(updated_date.timestamp()):
-                if project_info[project_id]["versions"] != project["versions"]:
-                    log.debug(
-                        f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
-                    )
-                    expired_project_ids.add(project_id)
-                else:
-                    log.debug(f"Project {project_id} is not updated, pass!")
-            else:
-                expired_project_ids.add(project_id)
-                log.debug(
-                    f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
+    info = fetch_mutil_projects_info(project_ids=[project.id for project in projects])
+    if info is not None:
+        with ModelSubmitter() as submitter:
+            for project in info:
+                submitter.add(Project(**project))
+                project_id = project["id"]
+                sync_date: datetime.datetime = project_info[project_id][
+                    "sync_date"
+                ].replace(tzinfo=None)
+                project_info[project_id]["source_date"] = project["updated"]
+                updated_date = datetime.datetime.fromisoformat(project["updated"]).replace(
+                    tzinfo=None
                 )
+                if int(sync_date.timestamp()) == int(updated_date.timestamp()):
+                    if project_info[project_id]["versions"] != project["versions"]:
+                        log.debug(
+                            f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
+                        )
+                        expired_project_ids.add(project_id)
+                    else:
+                        log.debug(f"Project {project_id} is not updated, pass!")
+                else:
+                    expired_project_ids.add(project_id)
+                    log.debug(
+                        f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
+                    )
 
     return expired_project_ids
+
 
 # check modrinth_project_ids queue
 def check_modrinth_project_ids_available():
@@ -75,7 +74,8 @@ def check_modrinth_project_ids_available():
     for i in range(0, len(project_ids), MODRINTH_LIMIT_SIZE):
         chunk = project_ids[i : i + MODRINTH_LIMIT_SIZE]
         info = fetch_mutil_projects_info(project_ids=chunk)
-        available_project_ids.extend([project["id"] for project in info])
+        if info is not None:
+            available_project_ids.extend([project["id"] for project in info])
     return list(set(available_project_ids))
 
 
@@ -91,7 +91,8 @@ def check_modrinth_version_ids_available():
     for i in range(0, len(version_ids), MODRINTH_LIMIT_SIZE):
         chunk = version_ids[i : i + MODRINTH_LIMIT_SIZE]
         info = fetch_multi_versions_info(version_ids=chunk)
-        available_project_ids.extend([version["project_id"] for version in info])
+        if info is not None:
+            available_project_ids.extend([version["project_id"] for version in info])
     return list(set(available_project_ids))
 
 
@@ -109,7 +110,8 @@ def check_modrinth_hashes_available():
         for i in range(0, len(hashes), MODRINTH_LIMIT_SIZE):
             chunk = hashes[i : i + MODRINTH_LIMIT_SIZE]
             info = fetch_multi_hashes_info(hashes=chunk, algorithm=algorithm)
-            available_project_ids.extend([hash["project_id"] for hash in info.values()])
+            if info is not None:
+                available_project_ids.extend([hash["project_id"] for hash in info.values()])
     return list(set(available_project_ids))
 
 
