@@ -2,7 +2,7 @@ from typing import List, Dict, Union, Optional
 from pydantic import BaseModel
 import tenacity
 from abc import ABC, abstractmethod
-from telegram.helpers import escape_markdown
+from telegram.helpers import escape_markdown as _escape_markdown
 
 
 from mcim_sync.utils.network import request
@@ -12,6 +12,8 @@ from mcim_sync.utils.constans import Platform, ProjectDetail
 
 config = Config.load()
 
+def escape_markdown(text: str) -> str:
+    return _escape_markdown(text=text, version=2)
 
 @tenacity.retry(
     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
@@ -82,7 +84,7 @@ class Notification(ABC):
 def make_blockquote(lines: List[str], prefix: str = "> ") -> str:
     return (
         "**"
-        + "\n".join([f"{prefix}{escape_markdown(line, version=2)}" for line in lines])
+        + "\n".join([f"{prefix}{escape_markdown(line)}" for line in lines])
         + "||"
     )
 
@@ -91,7 +93,7 @@ def make_project_detail_blockquote(projects_detail_info: List[ProjectDetail]) ->
     """
     制作模组信息的折叠代码块
     """
-    message = escape_markdown(f"\n以下格式为 模组名(模组ID): 版本数量\n", version=2)
+    message = escape_markdown(f"\n以下格式为 模组名(模组ID): 版本数量\n")
     mod_messages = []
     message_length = len(message)
     for project in projects_detail_info:
@@ -143,18 +145,7 @@ class RefreshNotification(Notification):
     def send_to_telegram(self) -> int:
         sync_message = escape_markdown(
             f"{self.platform} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组",
-            version=2,
         )
-        # if self.projects_detail_info:
-        #     sync_message += escape_markdown(
-        #         f"\n以下格式为 模组名(模组ID): 版本数量\n", version=2
-        #     )
-        #     mod_messages = []
-        #     for project in self.projects_detail_info:
-        #         mod_messages.append(
-        #             f"{project.name}({project.id}): {project.version_count}"
-        #         )
-        #     sync_message += make_blockquote(mod_messages)
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
         sync_message += escape_markdown(text=(
@@ -188,23 +179,10 @@ class SyncNotification(Notification):
             (
                 f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform.value} 的模组数据\n"
                 f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
-            ),
-            version=2,
+            )
         )
 
         if self.projects_detail_info:
-            # mod_messages = []
-            # message += escape_markdown(
-            #     f"\n以下格式为 模组名(模组ID): 版本数量\n", version=2
-            # )  # tmd 转义
-            # for project in self.projects_detail_info:
-            #     if len(message) > 4000:  # Telegram 限制消息长度 4096 字符
-            #         break
-            #     mod_messages.append(
-            #         f"{project.name}({project.id}): {project.version_count}"
-            #     )
-
-            # message += make_blockquote(mod_messages)
             message += make_project_detail_blockquote(self.projects_detail_info)
         message += escape_markdown(
             text=(
