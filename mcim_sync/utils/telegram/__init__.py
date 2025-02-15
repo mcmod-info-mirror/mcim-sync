@@ -110,25 +110,28 @@ class StatisticsNotification(Notification):
     @classmethod
     def send_to_telegram(cls) -> int:
         mcim_stats = request("https://mod.mcimirror.top/statistics").json()
-        files_stats = request("https://files.mcimirror.top/api/stats/center").json()
         mcim_message = (
             "MCIM API 已缓存：\n"
             f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个，指纹 {mcim_stats['curseforge']['fingerprint']} 个\n"
             f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
             f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
         )
-        files_stats = request("https://files.mcimirror.top/api/stats/center").json()
-        files_message = (
-            f"OpenMCIM 数据统计：\n"
-            f"当前在线节点：{files_stats['onlines']} 个\n"
-            f"当日全网总请求：{files_stats['today']['hits']} 次\n"
-            f"当日全网总流量：{files_stats['today']['bytes'] / 1024 / 1024 / 1024:.2f} GB\n"
-            f"同步源数量：{files_stats['sources']} 个\n"
-            f"总文件数：{files_stats['totalFiles']} 个\n"
-            f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024 / 1024:.2f} TB\n"
-            f"#Statistics"
-        )
-        final_message = f"{mcim_message}\n\n{files_message}"
+        
+        if config.file_cdn:
+            files_stats = request("https://files.mcimirror.top/api/stats/center").json()
+            files_message = (
+                f"OpenMCIM 数据统计：\n"
+                f"当前在线节点：{files_stats['onlines']} 个\n"
+                f"当日全网总请求：{files_stats['today']['hits']} 次\n"
+                f"当日全网总流量：{files_stats['today']['bytes'] / 1024 / 1024 / 1024:.2f} GB\n"
+                f"同步源数量：{files_stats['sources']} 个\n"
+                f"总文件数：{files_stats['totalFiles']} 个\n"
+                f"总文件大小：{files_stats['totalSize'] / 1024 / 1024 / 1024 / 1024:.2f} TB\n"
+                f"#Statistics"
+            )
+            final_message = f"{mcim_message}\n\n{files_message}"
+        else:
+            final_message = mcim_message
         message_id = send_message_sync(final_message, chat_id=config.chat_id)
         pin_message(message_id, chat_id=config.chat_id)
         return message_id
