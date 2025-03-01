@@ -113,8 +113,8 @@ class StatisticsNotification(Notification):
         mcim_message = (
             "MCIM API 已缓存：\n"
             f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个，指纹 {mcim_stats['curseforge']['fingerprint']} 个\n"
-            f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
-            f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
+            f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n" + 
+            (f"CDN 文件 {mcim_stats['file_cdn']['file']} 个" if config.file_cdn else "")
         )
         
         if config.file_cdn:
