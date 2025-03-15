@@ -112,21 +112,52 @@ def sync_mod_all_files(
     return page.totalCount
 
 
+def sync_mod_all_files_at_once(
+    modId: int, latestFiles: List[dict], need_to_cache: bool = True
+) -> int:
+    res = get_mod_files(modId, index=0, pageSize=10000)
+
+    append_model_from_files_res(
+        res, latestFiles=latestFiles, need_to_cache=need_to_cache
+    )
+
+    file_id_list = [file["id"] for file in res["data"]]
+
+    page = Pagination(**res["pagination"])
+
+    removed_count = mongodb_engine.remove(
+        File, File.modId == modId, query.not_in(File.id, file_id_list)
+    )
+    log.info(
+        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files"
+    )
+
+    return page.totalCount
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_mod(modId: int) -> Optional[ProjectDetail]:
     try:
         with ModelSubmitter() as submitter:
             res = get_mod(modId)
             submitter.add(Mod(**res))
-            sync_mod_all_files(
+
+            # version_count = sync_mod_all_files(
+            #     modId,
+            #     latestFiles=res["latestFiles"],
+            #     need_to_cache=True if res["classId"] == 6 else False,
+            # )
+
+            version_count = sync_mod_all_files_at_once(
                 modId,
                 latestFiles=res["latestFiles"],
                 need_to_cache=True if res["classId"] == 6 else False,
             )
+
             return ProjectDetail(
                 id=res["id"],
                 name=res["name"],
-                version_count=len(res["latestFiles"]),
+                version_count=version_count,
             )
     except ResponseCodeException as e:
         if e.status_code == 404:
