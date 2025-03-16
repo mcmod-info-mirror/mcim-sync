@@ -33,6 +33,10 @@ def refresh_curseforge_with_modify_date() -> bool:
     if config.sync_curseforge:
         curseforge_expired_modids = fetch_expired_curseforge_data()
 
+        # 到底哪来的的 wow，排除小于 30000 的 modid
+        curseforge_expired_modids = [modid for modid in curseforge_expired_modids if modid >= 30000]
+        
+
         log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
         log.info("Start syncing CurseForge expired data...")
 
