@@ -45,6 +45,8 @@ def refresh_modrinth_with_modify_date() -> bool:
             log.info(f"Start removing modrinth data: {len(modrinth_removed_data)}")
             remove_projects(modrinth_removed_data)
             log.info(f"Removed {len(modrinth_removed_data)} modrinth data.")
+            log.debug(f"Modrinth removed data: {modrinth_removed_data}")
+            
 
         # 刷新过期的 modrinth 数据
         log.info("Start syncing Modrinth expired data...")

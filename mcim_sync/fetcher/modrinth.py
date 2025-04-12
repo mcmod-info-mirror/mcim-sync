@@ -81,7 +81,10 @@ def fetch_expired_and_removed_modrinth_data() -> tuple[List[str], List[str]]:
         if not projects_result:
             break
         skip += MODRINTH_LIMIT_SIZE
-        check_expired_result, not_alive_result = check_modrinth_data_updated_and_alive(projects_result)
+        result = check_modrinth_data_updated_and_alive(projects_result)
+        if result is None:
+            continue
+        check_expired_result, not_alive_result = result
         expired_project_ids.update(check_expired_result)
         removed_project_ids.update(not_alive_result)
         log.debug(f"Matched {len(check_expired_result)} expired projects, {len(not_alive_result)} removed projects")

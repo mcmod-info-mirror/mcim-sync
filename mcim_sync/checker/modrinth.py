@@ -70,10 +70,14 @@ def check_modrinth_data_updated_and_alive(projects: List[Project]) -> tuple[set[
                         f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
                     )
 
-    # check if project is not alive
-    not_alive_project_ids = set(db_project_ids) - set(alive_project_ids)
+        # check if project is not alive
+        not_alive_project_ids = set(db_project_ids) - set(alive_project_ids)
 
-    return expired_project_ids, not_alive_project_ids
+        log.debug(
+            f"Expired project ids: {len(expired_project_ids)}, not alive project ids: {len(not_alive_project_ids)}"
+        )
+
+        return expired_project_ids, not_alive_project_ids
 
 
 # check modrinth_project_ids queue
