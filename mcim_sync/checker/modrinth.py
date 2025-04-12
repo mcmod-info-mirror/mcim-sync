@@ -1,4 +1,4 @@
-from typing import Union, List, Set
+from typing import Union, List, Set, Tuple
 import datetime
 import time
 
@@ -28,18 +28,27 @@ MAX_WORKERS: int = config.max_workers
 MODRINTH_DELAY: Union[float, int] = config.modrinth_delay
 
 
-def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
+def check_modrinth_data_updated_and_alive(projects: List[Project]) -> tuple[set[str], set[str]]:
     project_info = {
         project.id: {"sync_date": project.updated, "versions": project.versions}
         for project in projects
     }
     expired_project_ids: Set[str] = set()
-    info = fetch_mutil_projects_info(project_ids=[project.id for project in projects])
+    db_project_ids = [project.id for project in projects]
+    alive_project_ids = []
+    
+    info = fetch_mutil_projects_info(project_ids=db_project_ids)
+    
     if info is not None:
         with ModelSubmitter() as submitter:
             for project in info:
-                submitter.add(Project(**project))
                 project_id = project["id"]
+
+                # mark as alive
+                alive_project_ids.append(project_id)
+
+                submitter.add(Project(**project))
+
                 sync_date: datetime.datetime = project_info[project_id][
                     "sync_date"
                 ].replace(tzinfo=None)
@@ -61,7 +70,10 @@ def check_modrinth_data_updated(projects: List[Project]) -> Set[str]:
                         f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
                     )
 
-    return expired_project_ids
+    # check if project is not alive
+    not_alive_project_ids = set(db_project_ids) - set(alive_project_ids)
+
+    return expired_project_ids, not_alive_project_ids
 
 
 # check modrinth_project_ids queue

@@ -7,7 +7,7 @@ from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
 from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 from mcim_sync.models.database.modrinth import Project
-from mcim_sync.checker.modrinth import check_modrinth_data_updated
+from mcim_sync.checker.modrinth import check_modrinth_data_updated_and_alive
 
 config = Config.load()
 
@@ -70,8 +70,9 @@ def fetch_modrinth_data_by_sync_at():
 
 
 
-def fetch_expired_modrinth_data() -> List[str]:
+def fetch_expired_and_removed_modrinth_data() -> tuple[List[str], List[str]]:
     expired_project_ids = set()
+    removed_project_ids = set()
     skip = 0
     while True:
         projects_result: List[Project] = list(
@@ -80,9 +81,10 @@ def fetch_expired_modrinth_data() -> List[str]:
         if not projects_result:
             break
         skip += MODRINTH_LIMIT_SIZE
-        check_expired_result = check_modrinth_data_updated(projects_result)
+        check_expired_result, not_alive_result = check_modrinth_data_updated_and_alive(projects_result)
         expired_project_ids.update(check_expired_result)
-        log.debug(f"Matched {len(check_expired_result)} expired projects")
+        removed_project_ids.update(not_alive_result)
+        log.debug(f"Matched {len(check_expired_result)} expired projects, {len(not_alive_result)} removed projects")
         time.sleep(MODRINTH_DELAY)
         log.debug(f"Delay {MODRINTH_DELAY} seconds")
-    return list(expired_project_ids)
+    return list(expired_project_ids), list(removed_project_ids)

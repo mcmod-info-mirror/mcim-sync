@@ -21,7 +21,8 @@ from mcim_sync.checker.modrinth import (
     check_modrinth_hashes_available,
     check_newest_search_result,
 )
-from mcim_sync.fetcher.modrinth import fetch_expired_modrinth_data
+from mcim_sync.cleaner.modrinth import remove_projects
+from mcim_sync.fetcher.modrinth import fetch_expired_and_removed_modrinth_data
 from mcim_sync.queues.modrinth import clear_modrinth_all_queues
 from mcim_sync.tasks import create_tasks_pool, modrinth_pause_event
 
@@ -34,11 +35,18 @@ def refresh_modrinth_with_modify_date() -> bool:
     log.info("Start fetching expired Modrinth data.")
 
     if config.sync_modrinth:
-        modrinth_expired_data = fetch_expired_modrinth_data()
+        modrinth_expired_data, modrinth_removed_data = fetch_expired_and_removed_modrinth_data()
 
-        log.info(f"Modrinth expired data fetched: {len(modrinth_expired_data)}")
+        log.info(f"Modrinth expired data fetched: {len(modrinth_expired_data)}, removed data: {len(modrinth_removed_data)}")
+
+        # 删除已经源删除的 modrinth 数据
+        if modrinth_removed_data:
+            log.info(f"Start removing modrinth data: {len(modrinth_removed_data)}")
+            remove_projects(modrinth_removed_data)
+            log.info(f"Removed {len(modrinth_removed_data)} modrinth data.")
+
+        # 刷新过期的 modrinth 数据
         log.info("Start syncing Modrinth expired data...")
-
         modrinth_pause_event.set()
         modrinth_pool, modrinth_futures = create_tasks_pool(
             sync_project,  # 需要 ProjectDetail 返回值
