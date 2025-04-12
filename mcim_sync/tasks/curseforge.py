@@ -1,11 +1,9 @@
-import threading
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.constans import Platform
 from mcim_sync.utils.telegram import (
-    SyncNotification,
+    QueueSyncNotification,
     RefreshNotification,
     CategoriesNotification,
 )
@@ -34,8 +32,9 @@ def refresh_curseforge_with_modify_date() -> bool:
         curseforge_expired_modids = fetch_expired_curseforge_data()
 
         # 到底哪来的的 wow，排除小于 30000 的 modid
-        curseforge_expired_modids = [modid for modid in curseforge_expired_modids if modid >= 30000]
-        
+        curseforge_expired_modids = [
+            modid for modid in curseforge_expired_modids if modid >= 30000
+        ]
 
         log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
         log.info("Start syncing CurseForge expired data...")
@@ -86,6 +85,8 @@ def sync_curseforge_queue() -> bool:
     log.info("Start fetching curseforge queue.")
 
     modids = fetch_curseforge_fileids_from_queue()
+
+    # 检查这些 modid 是否是新的
     new_modids = check_new_modids(modids=modids)
     log.info(f"New modids: {new_modids}, count: {len(new_modids)}")
 
@@ -110,7 +111,7 @@ def sync_curseforge_queue() -> bool:
         log.info("CurseForge queue cleared.")
 
         if config.telegram_bot:
-            notice = SyncNotification(
+            notice = QueueSyncNotification(
                 platform=Platform.CURSEFORGE,
                 projects_detail_info=projects_detail_info,
                 total_catached_count=len(modids),
@@ -132,7 +133,9 @@ def refresh_curseforge_categories() -> bool:
     )
 
     if config.telegram_bot:
-        CategoriesNotification(total_catached_count=total_catached_count).send_to_telegram()
+        CategoriesNotification(
+            total_catached_count=total_catached_count
+        ).send_to_telegram()
         log.info("All Message sent to telegram.")
 
     return True

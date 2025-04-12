@@ -1,5 +1,6 @@
 from typing import Union, List, Set
 import datetime
+import time
 
 from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
 from mcim_sync.utils.loger import log
@@ -16,6 +17,7 @@ from mcim_sync.sync.modrinth import (
     fetch_mutil_projects_info,
     fetch_multi_versions_info,
     fetch_multi_hashes_info,
+    fetch_search_result,
 )
 
 config = Config.load()
@@ -124,3 +126,28 @@ def check_new_project_ids(project_ids: List[str]) -> List[str]:
     )
     found_project_ids = [project["_id"] for project in find_result]
     return list(set(project_ids) - set(found_project_ids))
+
+def check_newest_search_result() -> List[str]:
+    """
+    遍历 newest search result 直到出现第一个已缓存的 project_id，然后返回所有 new project_id
+    """
+    new_project_ids = []
+    offset = 0
+    flag = True
+    while flag:
+        res = fetch_search_result(offset=offset, index="newest", limit=100)
+        if res is not None:
+            if len(res["hits"]) != 0:
+                temp_new_project_ids = [project["project_id"] for project in res["hits"]]
+                # 查找是否已缓存
+                db_result = raw_mongo_client["modrinth_projects"].find({"_id": {"$in": temp_new_project_ids}}, {"_id": 1})
+                for project in db_result:
+                    if project["_id"] in temp_new_project_ids:
+                        temp_new_project_ids.remove(project["_id"])
+                        flag = False
+                log.debug(
+                    f"Fetched {len(temp_new_project_ids)} new project ids from search result, found {len(new_project_ids)} new project ids"
+                )
+                new_project_ids.extend(temp_new_project_ids)
+        offset += 100
+    return new_project_ids

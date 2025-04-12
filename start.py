@@ -11,6 +11,7 @@ from mcim_sync.tasks.modrinth import (
     sync_modrinth_queue,
     refresh_modrinth_with_modify_date,
     refresh_modrinth_tags,
+    sync_modrinth_by_search,
 )
 from mcim_sync.tasks.curseforge import (
     sync_curseforge_queue,
@@ -20,7 +21,7 @@ from mcim_sync.tasks.curseforge import (
 from mcim_sync.tasks.misc import send_statistics_to_telegram
 
 config = Config.load()
-log.info(f"MCIMConfig loaded.")
+log.info("MCIMConfig loaded.")
 
 
 def main():
@@ -57,6 +58,13 @@ def main():
         name="sync_modrinth",
     )
 
+    sync_modrinth_by_search_job = scheduler.add_job(
+        sync_modrinth_by_search,
+        trigger=IntervalTrigger(seconds=config.interval.sync_modrinth_by_search),
+        name="sync_modrinth_by_search",
+        next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+    )
+
     curseforge_categories_refresh_job = scheduler.add_job(
         refresh_curseforge_categories,
         trigger=IntervalTrigger(seconds=config.interval.curseforge_categories),
@@ -82,14 +90,14 @@ def main():
 
     # 启动调度器
     scheduler.start()
-    log.info(f"Scheduler started")
+    log.info("Scheduler started")
 
     try:
         while True:
             time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
-        log.info(f"Scheduler shutdown")
+        log.info("Scheduler shutdown")
 
 
 if __name__ == "__main__":

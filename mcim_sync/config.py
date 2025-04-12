@@ -29,6 +29,7 @@ class JobInterval(BaseModel):
     curseforge_categories: int = 60 * 60 * 24 # 24 hours
     modrinth_tags: int = 60 * 60 * 24 # 24 hours
     global_statistics: int = 60 * 60 * 24 # 24 hours
+    sync_modrinth_by_search: int = 60 * 60 * 2 # 24 hours
 
 class ConfigModel(BaseModel):
     debug: bool = False

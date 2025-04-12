@@ -93,7 +93,7 @@ def make_project_detail_blockquote(projects_detail_info: List[ProjectDetail]) ->
     """
     制作模组信息的折叠代码块
     """
-    message = escape_markdown(f"\n以下格式为 模组名(模组ID): 版本数量\n")
+    message = escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
     mod_messages = []
     message_length = len(message)
     for project in projects_detail_info:
@@ -162,7 +162,7 @@ class RefreshNotification(Notification):
         return message_id
 
 
-class SyncNotification(Notification):
+class QueueSyncNotification(Notification):
     platform: Platform
     total_catached_count: int
     projects_detail_info: List[ProjectDetail]
@@ -199,6 +199,36 @@ class SyncNotification(Notification):
         )
         return message_id
 
+class ModrinthSearchSyncNotification(Notification):
+    total_catached_count: int
+    projects_detail_info: List[ProjectDetail]
+
+    def __init__(
+        self,
+        total_catached_count: int,
+        projects_detail_info: List[ProjectDetail],
+    ):
+        self.total_catached_count = total_catached_count
+        self.projects_detail_info = projects_detail_info
+
+    def send_to_telegram(self) -> int:
+        message = escape_markdown(
+            (
+                f"本次从 Modrinth 搜索接口请求中总共捕捉到 {self.total_catached_count} 个新项目数据\n"
+            )
+        )
+
+        if self.projects_detail_info:
+            message += make_project_detail_blockquote(self.projects_detail_info)
+        message += escape_markdown(
+            text=(
+                "\n#Modrinth_New_Project"
+            )
+        )
+        message_id = send_message_sync(
+            message, parse_mode="MarkdownV2", chat_id=config.chat_id
+        )
+        return message_id
 
 class CategoriesNotification(Notification):
     total_catached_count: int

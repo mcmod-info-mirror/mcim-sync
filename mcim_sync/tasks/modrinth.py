@@ -1,11 +1,9 @@
-import threading
-import time
 from concurrent.futures import as_completed
 
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.constans import Platform
 from mcim_sync.utils.telegram import (
-    SyncNotification,
+    QueueSyncNotification,
     RefreshNotification,
     TagsNotification,
 )
@@ -21,6 +19,7 @@ from mcim_sync.checker.modrinth import (
     check_modrinth_project_ids_available,
     check_modrinth_version_ids_available,
     check_modrinth_hashes_available,
+    check_newest_search_result,
 )
 from mcim_sync.fetcher.modrinth import fetch_expired_modrinth_data
 from mcim_sync.queues.modrinth import clear_modrinth_all_queues
@@ -38,7 +37,7 @@ def refresh_modrinth_with_modify_date() -> bool:
         modrinth_expired_data = fetch_expired_modrinth_data()
 
         log.info(f"Modrinth expired data fetched: {len(modrinth_expired_data)}")
-        log.info(f"Start syncing Modrinth expired data...")
+        log.info("Start syncing Modrinth expired data...")
 
         modrinth_pause_event.set()
         modrinth_pool, modrinth_futures = create_tasks_pool(
@@ -65,60 +64,6 @@ def refresh_modrinth_with_modify_date() -> bool:
             log.info("Modrinth refresh message sent to telegram.")
 
     return True
-
-
-# def sync_modrinth_full():
-#     log.info("Start fetching all data.")
-#     total_data = {
-#         "modrinth": 0,
-#     }
-
-#     if SYNC_MODRINTH:
-#         modrinth_data = fetch_all_modrinth_data()
-#         log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
-#         total_data["modrinth"] = len(modrinth_data)
-
-#     # 允许请求
-#     modrinth_pause_event.set()
-
-#     modrinth_pool, modrinth_futures = create_tasks_pool(
-#         sync_project_all_version, modrinth_data, MAX_WORKERS, "modrinth"
-#     )
-
-#     log.info(f"All {len(modrinth_futures)} tasks submitted, waiting for completion...")
-
-#     for future in as_completed(modrinth_futures):
-#         # 不需要返回值
-#         pass
-
-#     modrinth_pool.shutdown()
-
-
-# def sync_modrinth_by_sync_at():
-#     log.info("Start fetching all data.")
-#     total_data = {
-#         "modrinth": 0,
-#     }
-
-#     if SYNC_MODRINTH:
-#         modrinth_data = fetch_modrinth_data_by_sync_at()
-#         log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
-#         total_data["modrinth"] = len(modrinth_data)
-
-#     # 允许请求
-#     modrinth_pause_event.set()
-
-#     modrinth_pool, modrinth_futures = create_tasks_pool(
-#         sync_project_all_version, modrinth_data, MAX_WORKERS, "modrinth"
-#     )
-
-#     log.info(f"All {len(modrinth_futures)} tasks submitted, waiting for completion...")
-
-#     for future in as_completed(modrinth_futures):
-#         # 不需要返回值
-#         pass
-
-#     modrinth_pool.shutdown()
 
 
 def fetch_modrinth_project_ids_from_queue():
@@ -174,10 +119,47 @@ def sync_modrinth_queue() -> bool:
         log.info("Modrinth queue cleared.")
 
         if config.telegram_bot:
-            notice = SyncNotification(
+            notice = QueueSyncNotification(
                 platform=Platform.MODRINTH,
                 projects_detail_info=projects_detail_info,
                 total_catached_count=len(project_ids),
+            )
+            notice.send_to_telegram()
+
+            log.info("All Message sent to telegram.")
+
+    return True
+
+def sync_modrinth_by_search():
+    """
+    从搜索接口拉取 modrinth 的 new project id
+    """
+    log.info("Start fetching new modrinth project ids by search.")
+    new_project_ids = check_newest_search_result()
+    log.info(f"Modrinth project ids fetched: {len(new_project_ids)}")
+    if new_project_ids:
+        modrinth_pause_event.set()
+        pool, futures = create_tasks_pool(
+            sync_project,
+            new_project_ids,
+            MAX_WORKERS,
+            "sync_modrinth_by_search",
+        )
+
+        projects_detail_info = []
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
+
+        pool.shutdown()
+        log.info(f"Modrinth sync new project by search finished, total: {len(new_project_ids)}")
+
+        if config.telegram_bot:
+            notice = QueueSyncNotification(
+                platform=Platform.MODRINTH,
+                projects_detail_info=projects_detail_info,
+                total_catached_count=len(new_project_ids),
             )
             notice.send_to_telegram()
 

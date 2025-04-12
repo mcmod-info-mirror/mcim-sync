@@ -118,3 +118,20 @@ def get_game_versions() -> List[dict]:
     # return game_versions
     res = request(f"{API}/v2/tag/game_version").json()
     return res
+
+def get_search_result(
+    query: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 100,
+    facets: Optional[str] = None,
+    index: Optional[str] = None,
+) -> dict:
+    params = {
+        "query": query,
+        "offset": offset,
+        "limit": limit,
+        "facets": facets,
+        "index": index,
+    }
+    res = request(f"{API}/v2/search", params=params).json()
+    return res

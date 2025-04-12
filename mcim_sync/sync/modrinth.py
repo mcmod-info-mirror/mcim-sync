@@ -30,6 +30,7 @@ from mcim_sync.apis.modrinth import (
     get_mutil_projects_info,
     get_multi_hashes_info,
     get_multi_versions_info,
+    get_search_result,
 )
 from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
@@ -169,4 +170,19 @@ def fetch_multi_versions_info(version_ids: List[str]) -> Optional[List[dict]]:
         return res
     except Exception as e:
         log.error(f"Failed to fetch mutil versions info: {e}")
+        return None
+    
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def fetch_search_result(
+    query: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 100,
+    facets: Optional[str] = None,
+    index: Optional[str] = None,
+) -> Optional[dict]:
+    try:
+        res = get_search_result(query, offset, limit, facets, index)
+        return res
+    except Exception as e:
+        log.error(f"Failed to fetch search result: {e}")
         return None
