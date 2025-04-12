@@ -214,7 +214,7 @@ class ModrinthSearchSyncNotification(Notification):
     def send_to_telegram(self) -> int:
         message = escape_markdown(
             (
-                f"本次从 Modrinth 搜索接口请求中总共捕捉到 {self.total_catached_count} 个新项目数据\n"
+                f"本次从 Modrinth 搜索接口中总共找到 {self.total_catached_count} 个新项目数据\n"
             )
         )
 

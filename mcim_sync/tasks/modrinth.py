@@ -4,6 +4,7 @@ from mcim_sync.utils.loger import log
 from mcim_sync.utils.constans import Platform
 from mcim_sync.utils.telegram import (
     QueueSyncNotification,
+    ModrinthSearchSyncNotification,
     RefreshNotification,
     TagsNotification,
 )
@@ -164,8 +165,7 @@ def sync_modrinth_by_search():
         log.info(f"Modrinth sync new project by search finished, total: {len(new_project_ids)}")
 
         if config.telegram_bot:
-            notice = QueueSyncNotification(
-                platform=Platform.MODRINTH,
+            notice = ModrinthSearchSyncNotification(
                 projects_detail_info=projects_detail_info,
                 total_catached_count=len(new_project_ids),
             )
