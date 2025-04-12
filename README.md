@@ -30,20 +30,17 @@
 缓存统计信息见 [mcim-statistics](https://mod.mcimirror.top/statistics)
 
 ```json5
-// 2025-1-8
+// 2025-03-22
 {
-    "curseforge": {
-        "mod": 99911,
-        "file": 1067564,
-        "fingerprint": 1438482
-    },
-    "modrinth": {
-        "project": 47824,
-        "version": 470865,
-        "file": 522406
-    },
-    "file_cdn": {
-        "file": 1050858
-    }
+  "curseforge": {
+    "mod": 115945,
+    "file": 1111429,
+    "fingerprint": 1122645
+  },
+  "modrinth": {
+    "project": 51188,
+    "version": 515585,
+    "file": 572604
+  }
 }
 ```
