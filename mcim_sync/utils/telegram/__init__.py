@@ -222,7 +222,7 @@ class ModrinthSearchSyncNotification(Notification):
             message += make_project_detail_blockquote(self.projects_detail_info)
         message += escape_markdown(
             text=(
-                "\n#Modrinth_New_Project"
+                "\n#Modrinth_Sync_by_Search"
             )
         )
         message_id = send_message_sync(

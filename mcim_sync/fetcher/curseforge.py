@@ -31,8 +31,8 @@ def fetch_all_curseforge_data() -> List[int]:
             break
         skip += CURSEFORGE_LIMIT_SIZE
         result.extend([mod.id for mod in mods_result])
-        time.sleep(CURSEFORGE_DELAY)
-        log.debug(f"Delay {CURSEFORGE_DELAY} seconds")
+        # time.sleep(CURSEFORGE_DELAY)
+        # log.debug(f"Delay {CURSEFORGE_DELAY} seconds")
     return result
 
 
