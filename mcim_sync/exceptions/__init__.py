@@ -56,7 +56,7 @@ class ResponseCodeException(ApiException):
 
     def __str__(self):
         return (
-            f"[{self.method}] {self.status_code} {self.url} {self.params} {self.data}"
+            f"[{self.method}] {self.status_code} {self.url} {self.params} {self.data} {self.msg}"
         )
 
 # 429 Too Many Requests
