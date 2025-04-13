@@ -7,6 +7,7 @@ from enum import Enum
 # config path
 CONFIG_PATH = os.path.join("config.json")
 
+
 class MongodbConfigModel(BaseModel):
     host: str = "localhost"
     port: int = 27017
@@ -15,21 +16,24 @@ class MongodbConfigModel(BaseModel):
     password: Optional[str] = None
     database: str = "database"
 
+
 class RedisConfigModel(BaseModel):
     host: str = "localhost"
     port: int = 6379
     password: Optional[str] = None
     database: int = 0
 
+
 class JobInterval(BaseModel):
-    curseforge_refresh: int = 60 * 60 * 2 # 2 hours
-    modrinth_refresh: int = 60 * 60 * 2 # 2 hours
-    sync_curseforge: int = 60 * 5 # 5 minutes
-    sync_modrinth: int = 60 * 5 # 5 minutes
-    curseforge_categories: int = 60 * 60 * 24 # 24 hours
-    modrinth_tags: int = 60 * 60 * 24 # 24 hours
-    global_statistics: int = 60 * 60 * 24 # 24 hours
-    sync_modrinth_by_search: int = 60 * 60 * 2 # 24 hours
+    curseforge_refresh: int = 60 * 60 * 2  # 2 hours
+    modrinth_refresh: int = 60 * 60 * 2  # 2 hours
+    sync_curseforge: int = 60 * 5  # 5 minutes
+    sync_modrinth: int = 60 * 5  # 5 minutes
+    sync_modrinth_by_search: int = 60 * 60 * 2  # 2 hours
+    curseforge_categories: int = 60 * 60 * 24  # 24 hours
+    modrinth_tags: int = 60 * 60 * 24  # 24 hours
+    global_statistics: int = 60 * 60 * 24  # 24 hours
+
 
 class ConfigModel(BaseModel):
     debug: bool = False
@@ -53,10 +57,9 @@ class ConfigModel(BaseModel):
     telegram_proxy: Optional[str] = None
     proxies: Optional[str] = None
     file_cdn: bool = False
-    max_file_size: int = 1024 * 1024 * 20 # 20MB
+    max_file_size: int = 1024 * 1024 * 20  # 20MB
     log_to_file: bool = False
     log_path: str = "./logs"
-
 
 
 class Config:
