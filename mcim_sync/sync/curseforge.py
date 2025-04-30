@@ -140,25 +140,29 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
     try:
         with ModelSubmitter() as submitter:
             res = get_mod(modId)
-            submitter.add(Mod(**res))
+            mod_model = Mod(**res)
+            if mod_model.gameId == 432:
+                submitter.add(mod_model)
 
-            # version_count = sync_mod_all_files(
-            #     modId,
-            #     latestFiles=res["latestFiles"],
-            #     need_to_cache=True if res["classId"] == 6 else False,
-            # )
+                # version_count = sync_mod_all_files(
+                #     modId,
+                #     latestFiles=res["latestFiles"],
+                #     need_to_cache=True if res["classId"] == 6 else False,
+                # )
 
-            version_count = sync_mod_all_files_at_once(
-                modId,
-                latestFiles=res["latestFiles"],
-                need_to_cache=True if res["classId"] == 6 else False,
-            )
+                version_count = sync_mod_all_files_at_once(
+                    modId,
+                    latestFiles=res["latestFiles"],
+                    need_to_cache=True if res["classId"] == 6 else False,
+                )
 
-            return ProjectDetail(
-                id=res["id"],
-                name=res["name"],
-                version_count=version_count,
-            )
+                return ProjectDetail(
+                    id=res["id"],
+                    name=res["name"],
+                    version_count=version_count,
+                )
+            else:
+                log.debug(f"Mod {modId} gameId is not 432")
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
