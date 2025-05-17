@@ -1,5 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 import datetime
 import time
 
@@ -67,14 +68,32 @@ def main():
 
     curseforge_categories_refresh_job = scheduler.add_job(
         refresh_curseforge_categories,
-        trigger=IntervalTrigger(seconds=config.interval.curseforge_categories),
+        # trigger=IntervalTrigger(seconds=config.interval.curseforge_categories),
+        # 使用 CronTrigger 每天执行一次，指定 0 点
+        trigger=CronTrigger(
+            hour="0",
+            minute="0",
+            second="0",
+            day_of_week="*",
+            month="*",
+            year="*",
+        ),
         name="curseforge_categories_refresh",
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
     )
 
     modrinth_refresh_tags_job = scheduler.add_job(
         refresh_modrinth_tags,
-        trigger=IntervalTrigger(seconds=config.interval.modrinth_tags),
+        # trigger=IntervalTrigger(seconds=config.interval.modrinth_tags),
+        # 使用 CronTrigger 每天执行一次
+        trigger=CronTrigger(
+            hour="0",
+            minute="0",
+            second="0",
+            day_of_week="*",
+            month="*",
+            year="*",
+        ),
         name="modrinth_refresh_tags",
         next_run_time=datetime.datetime.now(),  # 立即执行一次任务
     )
@@ -83,7 +102,16 @@ def main():
         # 单独发布统计信息
         statistics_job = scheduler.add_job(
             send_statistics_to_telegram,
-            trigger=IntervalTrigger(seconds=config.interval.global_statistics),
+            # trigger=IntervalTrigger(seconds=config.interval.global_statistics),
+            # 使用 CronTrigger 每天执行一次
+            trigger=CronTrigger(
+                hour="0",
+                minute="0",
+                second="0",
+                day_of_week="*",
+                month="*",
+                year="*",
+            ),
             name="statistics",
             next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         )
