@@ -53,11 +53,12 @@ def main():
         name="sync_curseforge",
     )
 
-    modrinth_sync_job = scheduler.add_job(
-        sync_modrinth_queue,
-        trigger=IntervalTrigger(seconds=config.interval.sync_modrinth),
-        name="sync_modrinth",
-    )
+    # 由 sync_modrinth_by_search 平替
+    # modrinth_sync_job = scheduler.add_job(
+    #     sync_modrinth_queue,
+    #     trigger=IntervalTrigger(seconds=config.interval.sync_modrinth),
+    #     name="sync_modrinth",
+    # )
 
     sync_modrinth_by_search_job = scheduler.add_job(
         sync_modrinth_by_search,
