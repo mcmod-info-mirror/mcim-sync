@@ -35,44 +35,46 @@ MAX_WORKERS: int = config.max_workers
 def refresh_modrinth_with_modify_date() -> bool:
     log.info("Start fetching expired Modrinth data.")
 
-    if config.sync_modrinth:
-        modrinth_expired_data, modrinth_removed_data = fetch_expired_and_removed_modrinth_data()
+    modrinth_expired_data, modrinth_removed_data = (
+        fetch_expired_and_removed_modrinth_data()
+    )
 
-        log.info(f"Modrinth expired data fetched: {len(modrinth_expired_data)}, removed data: {len(modrinth_removed_data)}")
+    log.info(
+        f"Modrinth expired data fetched: {len(modrinth_expired_data)}, removed data: {len(modrinth_removed_data)}"
+    )
 
-        # 删除已经源删除的 modrinth 数据
-        if modrinth_removed_data:
-            log.info(f"Start removing modrinth data: {len(modrinth_removed_data)}")
-            remove_projects(modrinth_removed_data)
-            log.info(f"Removed {len(modrinth_removed_data)} modrinth data.")
-            log.debug(f"Modrinth removed data: {modrinth_removed_data}")
-            
+    # 删除已经源删除的 modrinth 数据
+    if modrinth_removed_data:
+        log.info(f"Start removing modrinth data: {len(modrinth_removed_data)}")
+        remove_projects(modrinth_removed_data)
+        log.info(f"Removed {len(modrinth_removed_data)} modrinth data.")
+        log.debug(f"Modrinth removed data: {modrinth_removed_data}")
 
-        # 刷新过期的 modrinth 数据
-        log.info("Start syncing Modrinth expired data...")
-        modrinth_pause_event.set()
-        modrinth_pool, modrinth_futures = create_tasks_pool(
-            sync_project,  # 需要 ProjectDetail 返回值
-            modrinth_expired_data,
-            MAX_WORKERS,
-            "refresh_modrinth",
+    # 刷新过期的 modrinth 数据
+    log.info("Start syncing Modrinth expired data...")
+    modrinth_pause_event.set()
+    modrinth_pool, modrinth_futures = create_tasks_pool(
+        sync_project,  # 需要 ProjectDetail 返回值
+        modrinth_expired_data,
+        MAX_WORKERS,
+        "refresh_modrinth",
+    )
+
+    projects_detail_info = []
+    for future in as_completed(modrinth_futures):
+        result = future.result()
+        if result:
+            projects_detail_info.append(result)
+    else:
+        modrinth_pool.shutdown()
+
+    if config.telegram_bot:
+        notification = RefreshNotification(
+            platform=Platform.MODRINTH,
+            projects_detail_info=projects_detail_info,
         )
-
-        projects_detail_info = []
-        for future in as_completed(modrinth_futures):
-            result = future.result()
-            if result:
-                projects_detail_info.append(result)
-        else:
-            modrinth_pool.shutdown()
-
-        if config.telegram_bot:
-            notification = RefreshNotification(
-                platform=Platform.MODRINTH,
-                projects_detail_info=projects_detail_info,
-            )
-            notification.send_to_telegram()
-            log.info("Modrinth refresh message sent to telegram.")
+        notification.send_to_telegram()
+        log.info("Modrinth refresh message sent to telegram.")
 
     return True
 
@@ -141,6 +143,7 @@ def sync_modrinth_queue() -> bool:
 
     return True
 
+
 def sync_modrinth_by_search():
     """
     从搜索接口拉取 modrinth 的 new project id
@@ -164,7 +167,9 @@ def sync_modrinth_by_search():
                 projects_detail_info.append(result)
 
         pool.shutdown()
-        log.info(f"Modrinth sync new project by search finished, total: {len(new_project_ids)}")
+        log.info(
+            f"Modrinth sync new project by search finished, total: {len(new_project_ids)}"
+        )
 
         if config.telegram_bot:
             notice = SearchSyncNotification(

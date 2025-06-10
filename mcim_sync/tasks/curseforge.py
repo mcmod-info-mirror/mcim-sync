@@ -30,39 +30,38 @@ MAX_WORKERS: int = config.max_workers
 def refresh_curseforge_with_modify_date() -> bool:
     log.info("Start fetching expired CurseForge data.")
 
-    if config.sync_curseforge:
-        curseforge_expired_modids = fetch_expired_curseforge_data()
+    curseforge_expired_modids = fetch_expired_curseforge_data()
 
-        # 到底哪来的的 wow，排除小于 30000 的 modid
-        curseforge_expired_modids = [
-            modid for modid in curseforge_expired_modids if modid >= 30000
-        ]
+    # 到底哪来的的 wow，排除小于 30000 的 modid
+    curseforge_expired_modids = [
+        modid for modid in curseforge_expired_modids if modid >= 30000
+    ]
 
-        log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
-        log.info("Start syncing CurseForge expired data...")
+    log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
+    log.info("Start syncing CurseForge expired data...")
 
-        curseforge_pause_event.set()
-        curseforge_pool, curseforge_futures = create_tasks_pool(
-            sync_mod,  # 需要 ProjectDetail 返回值
-            curseforge_expired_modids,
-            MAX_WORKERS,
-            "refresh_curseforge",
+    curseforge_pause_event.set()
+    curseforge_pool, curseforge_futures = create_tasks_pool(
+        sync_mod,  # 需要 ProjectDetail 返回值
+        curseforge_expired_modids,
+        MAX_WORKERS,
+        "refresh_curseforge",
+    )
+    projects_detail_info = []
+    for future in as_completed(curseforge_futures):
+        result = future.result()
+        if result:
+            projects_detail_info.append(result)
+    else:
+        curseforge_pool.shutdown()
+
+    if config.telegram_bot:
+        notification = RefreshNotification(
+            platform=Platform.CURSEFORGE,
+            projects_detail_info=projects_detail_info,
         )
-        projects_detail_info = []
-        for future in as_completed(curseforge_futures):
-            result = future.result()
-            if result:
-                projects_detail_info.append(result)
-        else:
-            curseforge_pool.shutdown()
-
-        if config.telegram_bot:
-            notification = RefreshNotification(
-                platform=Platform.CURSEFORGE,
-                projects_detail_info=projects_detail_info,
-            )
-            notification.send_to_telegram()
-            log.info("CurseForge refresh message sent to telegram.")
+        notification.send_to_telegram()
+        log.info("CurseForge refresh message sent to telegram.")
 
     return True
 
@@ -204,8 +203,9 @@ def sync_curseforge_by_search():
             notice.send_to_telegram()
 
             log.info("All Message sent to telegram.")
-    
+
     return True
+
 
 # def sync_curseforge_full():
 #     log.info("Start fetching all data.")

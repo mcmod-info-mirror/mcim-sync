@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Optional, Union
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, ValidationError, field_validator
 from enum import Enum
 
 # config path
@@ -23,13 +23,30 @@ class RedisConfigModel(BaseModel):
     password: Optional[str] = None
     database: int = 0
 
+class JobConfigModel(BaseModel):
+    curseforge_refresh: bool = True
+    modrinth_refresh: bool = True
+    sync_curseforge_by_queue: bool = True
+    sync_curseforge_by_search: bool = True
+    sync_modrinth_by_queue: bool = True
+    sync_modrinth_by_search: bool = True
+    curseforge_categories: bool = True
+    modrinth_tags: bool = True
+    global_statistics: bool = True
+
+    @field_validator('*', mode='before')
+    def validate_bool(cls, v):
+        if isinstance(v, str):
+            return v.lower() in ('true', '1')
+        return bool(v)
+
 
 class JobInterval(BaseModel):
     curseforge_refresh: int = 60 * 60 * 2  # 2 hours
     modrinth_refresh: int = 60 * 60 * 2  # 2 hours
-    sync_curseforge: int = 60 * 5  # 5 minutes
+    sync_curseforge_by_queue: int = 60 * 5  # 5 minutes
     sync_curseforge_by_search: int = 60 * 60 * 2 # 2 hours
-    sync_modrinth: int = 60 * 5  # 5 minutes
+    sync_modrinth_by_queue: int = 60 * 5  # 5 minutes
     sync_modrinth_by_search: int = 60 * 60 * 2  # 2 hours
     curseforge_categories: int = 60 * 60 * 24  # 24 hours
     modrinth_tags: int = 60 * 60 * 24  # 24 hours
@@ -40,10 +57,9 @@ class ConfigModel(BaseModel):
     debug: bool = False
     mongodb: MongodbConfigModel = MongodbConfigModel()
     redis: RedisConfigModel = RedisConfigModel()
+    job_config: JobConfigModel = JobConfigModel()
     interval: JobInterval = JobInterval()
     max_workers: int = 8
-    sync_curseforge: bool = True
-    sync_modrinth: bool = True
     curseforge_chunk_size: int = 1000
     modrinth_chunk_size: int = 1000
     curseforge_delay: Union[float, int] = 1
