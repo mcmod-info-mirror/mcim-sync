@@ -9,7 +9,7 @@ from mcim_sync.database._redis import init_redis_syncengine
 from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 from mcim_sync.tasks.modrinth import (
-    sync_modrinth_queue,
+    # sync_modrinth_queue,
     refresh_modrinth_with_modify_date,
     refresh_modrinth_tags,
     sync_modrinth_by_search,
@@ -18,6 +18,7 @@ from mcim_sync.tasks.curseforge import (
     sync_curseforge_queue,
     refresh_curseforge_with_modify_date,
     refresh_curseforge_categories,
+    sync_curseforge_by_search
 )
 from mcim_sync.tasks.misc import send_statistics_to_telegram
 
@@ -64,7 +65,12 @@ def main():
         sync_modrinth_by_search,
         trigger=IntervalTrigger(seconds=config.interval.sync_modrinth_by_search),
         name="sync_modrinth_by_search",
-        next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+    )
+
+    sync_curseforge_by_search_job = scheduler.add_job(
+        sync_curseforge_by_search,
+        trigger=IntervalTrigger(seconds=config.interval.sync_curseforge_by_search),
+        name="sync_curseforge_by_search",
     )
 
     curseforge_categories_refresh_job = scheduler.add_job(
@@ -114,7 +120,6 @@ def main():
                 year="*",
             ),
             name="statistics",
-            next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         )
 
     # 启动调度器

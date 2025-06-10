@@ -12,8 +12,10 @@ from mcim_sync.utils.constans import Platform, ProjectDetail
 
 config = Config.load()
 
+
 def escape_markdown(text: str) -> str:
     return _escape_markdown(text=text, version=2)
+
 
 @tenacity.retry(
     # retry=tenacity.retry_if_exception_type(TelegramError, NetworkError), # 无条件重试
@@ -83,9 +85,7 @@ class Notification(ABC):
 
 def make_blockquote(lines: List[str], prefix: str = "> ") -> str:
     return (
-        "**"
-        + "\n".join([f"{prefix}{escape_markdown(line)}" for line in lines])
-        + "||"
+        "**" + "\n".join([f"{prefix}{escape_markdown(line)}" for line in lines]) + "||"
     )
 
 
@@ -113,10 +113,14 @@ class StatisticsNotification(Notification):
         mcim_message = (
             "MCIM API 已缓存：\n"
             f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个，指纹 {mcim_stats['curseforge']['fingerprint']} 个\n"
-            f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n" + 
-            (f"CDN 文件 {mcim_stats['file_cdn']['file']} 个" if config.file_cdn else "")
+            f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
+            + (
+                f"CDN 文件 {mcim_stats['file_cdn']['file']} 个"
+                if config.file_cdn
+                else ""
+            )
         )
-        
+
         if config.file_cdn:
             files_stats = request("https://files.mcimirror.top/api/stats/center").json()
             files_message = (
@@ -151,11 +155,13 @@ class RefreshNotification(Notification):
         )
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)
-        sync_message += escape_markdown(text=(
-            "\n#Curseforge_Refresh"
-            if self.platform == Platform.CURSEFORGE
-            else "\n#Modrinth_Refresh"
-        ))
+        sync_message += escape_markdown(
+            text=(
+                "\n#Curseforge_Refresh"
+                if self.platform == Platform.CURSEFORGE
+                else "\n#Modrinth_Refresh"
+            )
+        )
         message_id = send_message_sync(
             sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2"
         )
@@ -180,7 +186,7 @@ class QueueSyncNotification(Notification):
     def send_to_telegram(self) -> int:
         message = escape_markdown(
             (
-                f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform.value} 的模组数据\n"
+                f"本次从 API 请求中总共捕捉到 {self.total_catached_count} 个 {self.platform.value.capitalize()} 的模组数据\n"
                 f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
             )
         )
@@ -188,47 +194,46 @@ class QueueSyncNotification(Notification):
         if self.projects_detail_info:
             message += make_project_detail_blockquote(self.projects_detail_info)
         message += escape_markdown(
-            text=(
-                "\n#Curseforge_Sync"
-                if self.platform == Platform.CURSEFORGE
-                else "\n#Modrinth_Sync"
-            )
+            text=f"\n#{self.platform.value.capitalize()}_Sync_by_Queue"
         )
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
         )
         return message_id
 
-class ModrinthSearchSyncNotification(Notification):
+
+class SearchSyncNotification(Notification):
+    platform: Platform
     total_catached_count: int
     projects_detail_info: List[ProjectDetail]
 
     def __init__(
         self,
+        platform: Platform,
         total_catached_count: int,
         projects_detail_info: List[ProjectDetail],
     ):
+        self.platform = platform
         self.total_catached_count = total_catached_count
         self.projects_detail_info = projects_detail_info
 
     def send_to_telegram(self) -> int:
         message = escape_markdown(
             (
-                f"本次从 Modrinth 搜索接口中总共找到 {self.total_catached_count} 个新项目数据\n"
+                f"本次从 {self.platform.value} 搜索接口中总共找到 {self.total_catached_count} 个新项目数据\n"
             )
         )
 
         if self.projects_detail_info:
             message += make_project_detail_blockquote(self.projects_detail_info)
         message += escape_markdown(
-            text=(
-                "\n#Modrinth_Sync_by_Search"
-            )
+            text=f"\n#{self.platform.value.capitalize()}_Sync_by_Search"
         )
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
         )
         return message_id
+
 
 class CategoriesNotification(Notification):
     total_catached_count: int

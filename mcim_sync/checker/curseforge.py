@@ -1,5 +1,6 @@
 from typing import Union, List, Set
 import datetime
+import time
 
 from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
 from mcim_sync.utils.loger import log
@@ -9,6 +10,9 @@ from mcim_sync.sync.curseforge import (
     fetch_mutil_mods_info,
     fetch_mutil_files,
     fetch_mutil_fingerprints,
+    fetch_search_result,
+    ModsSearchSortOrder,
+    ModsSearchSortField,
 )
 from mcim_sync.queues.curseforge import (
     fetch_curseforge_modids_queue,
@@ -115,3 +119,50 @@ def check_new_modids(modids: List[int]) -> List[int]:
     )
     found_modids = [mod["_id"] for mod in find_result]
     return list(set(modids) - set(found_modids))
+
+
+
+def check_newest_search_result(classId: int) -> List[int]:
+    """
+    遍历搜索返回值直到出现第一个已缓存的 modid，然后返回所有捕捉到的新 modid
+    """
+    new_modids = []
+    index = 0
+    page_size = 50
+
+    while index + page_size <= 10000:
+        res = fetch_search_result(
+            gameId=432, classId=classId, index=index, pageSize=page_size,
+            sortField=ModsSearchSortField.ReleasedDate,
+            sortOrder=ModsSearchSortOrder.DESC,
+        )
+        
+        if res["pagination"]["resultCount"] == 0:
+            break
+
+        temp_modids = [mod["id"] for mod in res["data"]]
+
+        # 检查哪些 mod 已经在数据库中
+        existing_mods = set(
+            doc["_id"] for doc in raw_mongo_client["curseforge_mods"].find(
+                {"_id": {"$in": temp_modids}}, 
+                {"_id": 1}
+            )
+        )
+
+        # 如果找到任何已存在的 mod，停止搜索
+        if existing_mods:
+            new_ids = [mid for mid in temp_modids if mid not in existing_mods]
+            new_modids.extend(new_ids)
+            log.debug(f"Found {len(new_ids)} new modids at index {index}")
+            break
+
+        # 如果所有 mod 都是新的，添加它们并继续搜索
+        new_modids.extend(temp_modids)
+        log.debug(f"Found {len(temp_modids)} new modids at index {index}")
+
+        index += page_size
+
+        time.sleep(CURSEFORGE_DELAY)
+
+    return new_modids

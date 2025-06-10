@@ -4,6 +4,7 @@ from mcim_sync.utils.loger import log
 from mcim_sync.utils.constans import Platform
 from mcim_sync.utils.telegram import (
     QueueSyncNotification,
+    SearchSyncNotification,
     RefreshNotification,
     CategoriesNotification,
 )
@@ -14,6 +15,7 @@ from mcim_sync.checker.curseforge import (
     check_curseforge_fileids_available,
     check_curseforge_fingerprints_available,
     check_new_modids,
+    check_newest_search_result,
 )
 from mcim_sync.fetcher.curseforge import fetch_expired_curseforge_data
 from mcim_sync.queues.curseforge import clear_curseforge_all_queues
@@ -139,6 +141,69 @@ def refresh_curseforge_categories() -> bool:
         log.info("All Message sent to telegram.")
 
     return True
+
+
+def sync_curseforge_by_search():
+    """
+    从搜索接口拉取 curseforge 的新 Mod
+
+    ?gameId=432&classId=6&sortField=11&sortOrder=desc
+    """
+    log.info("Start fetching new curseforge mod by search.")
+
+    # /v1/categories?gameId=432&classOnly=true
+    # 排除 Bukkit Plugins
+    class_info = [
+        {"id": 4546, "name": "Customization"},
+        {"id": 4559, "name": "Addons"},
+        {"id": 12, "name": "Resource Packs"},
+        {"id": 6, "name": "Mods"},
+        {"id": 4471, "name": "Modpacks"},
+        {"id": 17, "name": "Worlds"},
+        {"id": 6552, "name": "Shaders"},
+        {"id": 6945, "name": "Data Packs"},
+    ]
+    classIds = [cls["id"] for cls in class_info]
+    new_modids = []
+
+    for classId in classIds:
+        class_name = class_info[classIds.index(classId)]["name"]
+        log.info(
+            f"Fetching new curseforge mod by search, classId: {classId}, name: {class_name}"
+        )
+        result = check_newest_search_result(classId=classId)
+        new_modids.extend(result)
+        log.info(
+            f"New modids fetched for classId {classId} name {class_name}: {len(result)}"
+        )
+
+    new_modids = list(set(new_modids))  # 去重
+
+    log.info(f"CurseForge new modids fetched: {len(new_modids)}")
+    if new_modids:
+        curseforge_pause_event.set()
+        pool, futures = create_tasks_pool(
+            sync_mod, new_modids, MAX_WORKERS, "sync_curseforge_by_search"
+        )
+
+        projects_detail_info = []
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
+
+        pool.shutdown()
+        log.info(f"CurseForge search sync finished, total: {len(new_modids)}")
+
+        if config.telegram_bot:
+            notice = SearchSyncNotification(
+                platform=Platform.CURSEFORGE,
+                projects_detail_info=projects_detail_info,
+                total_catached_count=len(new_modids),
+            )
+            notice.send_to_telegram()
+
+            log.info("All Message sent to telegram.")
 
 
 # def sync_curseforge_full():

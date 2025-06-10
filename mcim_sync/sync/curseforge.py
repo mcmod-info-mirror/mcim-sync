@@ -1,6 +1,7 @@
 from typing import List, Optional, Union
 from tenacity import retry, stop_after_attempt, wait_fixed
 from odmantic import query
+from enum import Enum
 import time
 
 from mcim_sync.models.database.curseforge import (
@@ -17,6 +18,7 @@ from mcim_sync.apis.curseforge import (
     get_mutil_files,
     get_mutil_fingerprints,
     get_mutil_mods_info,
+    get_search_result,
 )
 from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
@@ -221,6 +223,93 @@ def sync_categories(
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error("Categories not found!")
+            return None
+        else:
+            raise e
+
+class ModsSearchSortField(int, Enum):
+    """
+    https://docs.curseforge.com/rest-api/#tocS_ModsSearchSortField
+    """
+    Featured = 1
+    Popularity = 2
+    LastUpdated = 3
+    Name = 4
+    Author = 5
+    TotalDownloads = 6
+    Category = 7
+    GameVersion = 8
+    EarlyAccess = 9
+    FeaturedReleased = 10
+    ReleasedDate = 11
+    Rating = 12
+
+
+class ModLoaderType(int, Enum):
+    """
+    https://docs.curseforge.com/rest-api/#tocS_ModLoaderType
+    """
+    Any = 0
+    Forge = 1
+    Cauldron = 2
+    LiteLoader = 3
+    Fabric = 4
+    Quilt = 5
+    NeoForge = 6
+
+class ModsSearchSortOrder(str, Enum):
+    """
+    'asc' if sort is in ascending order, 'desc' if sort is in descending order
+    """
+    ASC = "asc"
+    DESC = "desc"
+
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+def fetch_search_result(
+    gameId: int = 432,
+    classId: Optional[int] = None,
+    categoryId: Optional[int] = None,
+    categoryIds: Optional[str] = None,
+    gameVersion: Optional[str] = None,
+    gameVersions: Optional[str] = None,
+    searchFilter: Optional[str] = None,
+    sortField: Optional[ModsSearchSortField] = None,
+    sortOrder: Optional[ModsSearchSortOrder] = None,
+    modLoaderType: Optional[ModLoaderType] = None,
+    modLoaderTypes: Optional[str] = None,
+    gameVersionTypeId: Optional[int] = None,
+    authorId: Optional[int] = None,
+    primaryAuthorId: Optional[int] = None,
+    slug: Optional[str] = None,
+    index: Optional[int] = None,
+    pageSize: Optional[int] = 50):
+    """
+    Fetch search result from CurseForge API.
+    """
+    try:
+        res = get_search_result(
+            gameId=gameId,
+            classId=classId,
+            categoryId=categoryId,
+            categoryIds=categoryIds,
+            gameVersion=gameVersion,
+            gameVersions=gameVersions,
+            searchFilter=searchFilter,
+            sortField=sortField.value if sortField else None,
+            sortOrder=sortOrder.value if sortOrder else None,
+            modLoaderType=modLoaderType.value if modLoaderType else None,
+            modLoaderTypes=modLoaderTypes,
+            gameVersionTypeId=gameVersionTypeId,
+            authorId=authorId,
+            primaryAuthorId=primaryAuthorId,
+            slug=slug,
+            index=index,
+            pageSize=pageSize
+        )
+        return res
+    except ResponseCodeException as e:
+        if e.status_code == 404:
+            log.error("Search result not found!")
             return None
         else:
             raise e

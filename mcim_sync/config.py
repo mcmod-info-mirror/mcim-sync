@@ -28,6 +28,7 @@ class JobInterval(BaseModel):
     curseforge_refresh: int = 60 * 60 * 2  # 2 hours
     modrinth_refresh: int = 60 * 60 * 2  # 2 hours
     sync_curseforge: int = 60 * 5  # 5 minutes
+    sync_curseforge_by_search: int = 60 * 60 * 2 # 2 hours
     sync_modrinth: int = 60 * 5  # 5 minutes
     sync_modrinth_by_search: int = 60 * 60 * 2  # 2 hours
     curseforge_categories: int = 60 * 60 * 24  # 24 hours

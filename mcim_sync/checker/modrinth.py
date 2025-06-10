@@ -149,21 +149,33 @@ def check_newest_search_result() -> List[str]:
     """
     new_project_ids = []
     offset = 0
-    flag = True
-    while flag:
-        res = fetch_search_result(offset=offset, index="newest", limit=100)
-        if res is not None:
-            if len(res["hits"]) != 0:
-                temp_new_project_ids = [project["project_id"] for project in res["hits"]]
-                # 查找是否已缓存
-                db_result = raw_mongo_client["modrinth_projects"].find({"_id": {"$in": temp_new_project_ids}}, {"_id": 1})
-                for project in db_result:
-                    if project["_id"] in temp_new_project_ids:
-                        temp_new_project_ids.remove(project["_id"])
-                        flag = False
-                log.debug(
-                    f"Fetched {len(temp_new_project_ids)} new project ids from search result, found {len(new_project_ids)} new project ids"
-                )
-                new_project_ids.extend(temp_new_project_ids)
-        offset += 100
+    limit = 100
+
+    while True:
+        res = fetch_search_result(offset=offset, index="newest", limit=limit)
+        if not res or not res["hits"] or len(res["hits"]) == 0:
+            break
+
+        temp_project_ids = [project["project_id"] for project in res["hits"]]
+        
+        # Check which projects are already in database
+        existing_projects = set(
+            doc["_id"] for doc in raw_mongo_client["modrinth_projects"].find(
+                {"_id": {"$in": temp_project_ids}}, 
+                {"_id": 1}
+            )
+        )
+
+        # If we found any existing project, stop searching
+        if existing_projects:
+            new_ids = [pid for pid in temp_project_ids if pid not in existing_projects]
+            new_project_ids.extend(new_ids)
+            break
+
+        # If all projects are new, add them and continue searching
+        new_project_ids.extend(temp_project_ids)
+        log.debug(f"Found {len(temp_project_ids)} new project IDs at offset {offset}")
+        
+        offset += limit
+
     return new_project_ids

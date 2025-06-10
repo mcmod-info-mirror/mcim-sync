@@ -19,24 +19,24 @@ def get_mod_files(modId: int, index: int, pageSize: int) -> dict:
 
 
 def get_mod(modId: int) -> dict:
-    res = request(f"{API}/v1/mods/{modId}", headers=HEADERS).json()["data"]
-    return res
+    res = request(f"{API}/v1/mods/{modId}", headers=HEADERS).json()
+    return res["data"]
 
 
 def get_mutil_mods_info(modIds: List[int]):
     data = {"modIds": modIds}
     res = request(
         method="POST", url=f"{API}/v1/mods", json=data, headers=HEADERS
-    ).json()["data"]
-    return res
+    ).json()
+    return res["data"]
 
 
 def get_mutil_files(fileIds: List[int]):
     data = {"fileIds": fileIds}
     res = request(
         method="POST", url=f"{API}/v1/mods/files", json=data, headers=HEADERS
-    ).json()["data"]
-    return res
+    ).json()
+    return res["data"]
 
 
 def get_mutil_fingerprints(fingerprints: List[int]):
@@ -45,8 +45,8 @@ def get_mutil_fingerprints(fingerprints: List[int]):
         url=f"{API}/v1/fingerprints/432",
         headers=HEADERS,
         json={"fingerprints": fingerprints},
-    ).json()["data"]
-    return res
+    ).json()
+    return res["data"]
 
 
 def get_categories(
@@ -57,5 +57,47 @@ def get_categories(
         params["classId"] = classId
     elif classOnly:
         params["classOnly"] = classOnly
-    res = request(f"{API}/v1/categories", params=params, headers=HEADERS).json()["data"]
+    res = request(f"{API}/v1/categories", params=params, headers=HEADERS).json()
+    return res["data"]
+
+
+def get_search_result(
+    gameId: int = 432,
+    classId: Optional[int] = None,
+    categoryId: Optional[int] = None,
+    categoryIds: Optional[str] = None,
+    gameVersion: Optional[str] = None,
+    gameVersions: Optional[str] = None,
+    searchFilter: Optional[str] = None,
+    sortField: Optional[int] = None,
+    sortOrder: Optional[str] = None,
+    modLoaderType: Optional[int] = None,
+    modLoaderTypes: Optional[str] = None,
+    gameVersionTypeId: Optional[int] = None,
+    authorId: Optional[int] = None,
+    primaryAuthorId: Optional[int] = None,
+    slug: Optional[str] = None,
+    index: Optional[int] = None,
+    pageSize: Optional[int] = 50,
+) -> dict:
+    params = {
+        "gameId": gameId,
+        "classId": classId,
+        "categoryId": categoryId,
+        "categoryIds": categoryIds,
+        "gameVersion": gameVersion,
+        "gameVersions": gameVersions,
+        "searchFilter": searchFilter,
+        "sortField": sortField,
+        "sortOrder": sortOrder,
+        "modLoaderType": modLoaderType,
+        "modLoaderTypes": modLoaderTypes,
+        "gameVersionTypeId": gameVersionTypeId,
+        "authorId": authorId,
+        "primaryAuthorId": primaryAuthorId,
+        "slug": slug,
+        "index": index,
+        "pageSize": pageSize,
+    }
+    res = request(f"{API}/v1/mods/search", params=params, headers=HEADERS).json()
     return res
