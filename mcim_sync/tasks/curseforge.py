@@ -204,7 +204,8 @@ def sync_curseforge_by_search():
             notice.send_to_telegram()
 
             log.info("All Message sent to telegram.")
-
+    
+    return True
 
 # def sync_curseforge_full():
 #     log.info("Start fetching all data.")

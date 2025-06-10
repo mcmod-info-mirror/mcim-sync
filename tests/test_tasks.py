@@ -32,10 +32,12 @@ def test_refresh_curseforge_with_modify_date():
 def test_refresh_curseforge_categories():
     assert refresh_curseforge_categories()
 
-@mark.skip(reason="不在 ci 测试全量抓取，耗时过久")
+# @mark.skip(reason="不在 ci 测试全量抓取，耗时过久")
+@mark.usefixtures("insert_recent_modrinth_project")
 def test_sync_modrinth_by_search():
     assert sync_modrinth_by_search()
 
-@mark.skip(reason="不在 ci 测试全量抓取，耗时过久")
+# @mark.skip(reason="不在 ci 测试全量抓取，耗时过久")
+@mark.usefixtures("insert_recent_curseforge_mod")
 def test_sync_curseforge_by_search():
     assert sync_curseforge_by_search()
