@@ -36,6 +36,6 @@ def test_refresh_curseforge_categories():
 def test_sync_modrinth_by_search():
     assert sync_modrinth_by_search()
 
-# @mark.skip(reason="不在 ci 测试全量抓取，耗时过久")
+@mark.skip(reason="不在 ci 测试全量抓取，耗时过久")
 def test_sync_curseforge_by_search():
     assert sync_curseforge_by_search()
