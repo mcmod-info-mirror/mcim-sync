@@ -64,14 +64,14 @@ def main():
             name="sync_modrinth_queue",
         )
 
-    if config.job_config.sync_curseforge_by_search:
+    if config.job_config.sync_modrinth_by_search:
         sync_modrinth_by_search_job = scheduler.add_job(
             sync_modrinth_by_search,
             trigger=IntervalTrigger(seconds=config.interval.sync_modrinth_by_search),
             name="sync_modrinth_by_search",
         )
 
-    if config.job_config.sync_modrinth_by_search:
+    if config.job_config.sync_curseforge_by_search:
         sync_curseforge_by_search_job = scheduler.add_job(
             sync_curseforge_by_search,
             trigger=IntervalTrigger(seconds=config.interval.sync_curseforge_by_search),
