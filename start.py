@@ -92,7 +92,7 @@ def main():
                 year="*",
             ),
             name="curseforge_categories_refresh",
-            next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+            # next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         )
 
     if config.job_config.modrinth_tags:
@@ -109,7 +109,7 @@ def main():
                 year="*",
             ),
             name="modrinth_refresh_tags",
-            next_run_time=datetime.datetime.now(),  # 立即执行一次任务
+            # next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         )
 
     if config.telegram_bot and config.job_config.global_statistics:

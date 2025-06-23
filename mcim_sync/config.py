@@ -61,7 +61,7 @@ class ConfigModel(BaseModel):
     interval: JobInterval = JobInterval()
     max_workers: int = 8
     curseforge_chunk_size: int = 1000
-    modrinth_chunk_size: int = 1000
+    modrinth_chunk_size: int = 100
     curseforge_delay: Union[float, int] = 1
     modrinth_delay: Union[float, int] = 1
     curseforge_api_key: str = "<api key>"

@@ -144,14 +144,23 @@ class StatisticsNotification(Notification):
 class RefreshNotification(Notification):
     platform: Platform
     projects_detail_info: List[ProjectDetail]
+    failed_count = 0  # 失败的模组数量
 
-    def __init__(self, platform: Platform, projects_detail_info: List[ProjectDetail]):
+    def __init__(
+        self,
+        platform: Platform,
+        projects_detail_info: List[ProjectDetail],
+        failed_count: Optional[int] = 0,
+    ):
         self.platform = platform
         self.projects_detail_info = projects_detail_info
+        self.failed_count = failed_count if failed_count is not None else 0
 
     def send_to_telegram(self) -> int:
         sync_message = escape_markdown(
-            f"{self.platform.value} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组",
+            f"{self.platform.value} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组, {self.failed_count} 个模组刷新失败\n"
+            if self.failed_count > 0
+            else f"{self.platform.value} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组\n"
         )
         if self.projects_detail_info:
             sync_message += make_project_detail_blockquote(self.projects_detail_info)

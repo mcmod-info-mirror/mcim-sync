@@ -116,7 +116,7 @@ def sync_mod_all_files(
 
 def sync_mod_all_files_at_once(
     modId: int, latestFiles: List[dict], need_to_cache: bool = True
-) -> int:
+) -> Optional[int]:
     res = get_mod_files(modId, index=0, pageSize=10000)
 
     append_model_from_files_res(
@@ -127,11 +127,16 @@ def sync_mod_all_files_at_once(
 
     page = Pagination(**res["pagination"])
 
+    if page.resultCount != page.totalCount:
+        log.warning(
+            f"ResultCount {page.resultCount} != TotalCount {page.totalCount} for mod {modId}, response maybe incomplete, passing sync"
+        )
+        return None
     removed_count = mongodb_engine.remove(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
     log.info(
-        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files"
+        f"Finished sync mod {modId}, total {page.totalCount} files, resultCount {page.resultCount}, removed {removed_count} files"
     )
 
     return page.totalCount
@@ -144,8 +149,6 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
             res = get_mod(modId)
             mod_model = Mod(**res)
             if mod_model.gameId == 432:
-                submitter.add(mod_model)
-
                 # version_count = sync_mod_all_files(
                 #     modId,
                 #     latestFiles=res["latestFiles"],
@@ -158,6 +161,9 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
                     need_to_cache=True if res["classId"] == 6 else False,
                 )
 
+                if version_count is None:
+                    return None
+
                 return ProjectDetail(
                     id=res["id"],
                     name=res["name"],
@@ -165,6 +171,9 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
                 )
             else:
                 log.debug(f"Mod {modId} gameId is not 432")
+
+            # 最后再添加，以防未成功刷新版本列表而更新 Mod 信息
+            submitter.add(mod_model)
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
@@ -227,10 +236,12 @@ def sync_categories(
         else:
             raise e
 
+
 class ModsSearchSortField(int, Enum):
     """
     https://docs.curseforge.com/rest-api/#tocS_ModsSearchSortField
     """
+
     Featured = 1
     Popularity = 2
     LastUpdated = 3
@@ -249,6 +260,7 @@ class ModLoaderType(int, Enum):
     """
     https://docs.curseforge.com/rest-api/#tocS_ModLoaderType
     """
+
     Any = 0
     Forge = 1
     Cauldron = 2
@@ -257,12 +269,15 @@ class ModLoaderType(int, Enum):
     Quilt = 5
     NeoForge = 6
 
+
 class ModsSearchSortOrder(str, Enum):
     """
     'asc' if sort is in ascending order, 'desc' if sort is in descending order
     """
+
     ASC = "asc"
     DESC = "desc"
+
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def fetch_search_result(
@@ -282,7 +297,8 @@ def fetch_search_result(
     primaryAuthorId: Optional[int] = None,
     slug: Optional[str] = None,
     index: Optional[int] = None,
-    pageSize: Optional[int] = 50):
+    pageSize: Optional[int] = 50,
+):
     """
     Fetch search result from CurseForge API.
     """
@@ -304,7 +320,7 @@ def fetch_search_result(
             primaryAuthorId=primaryAuthorId,
             slug=slug,
             index=index,
-            pageSize=pageSize
+            pageSize=pageSize,
         )
         return res
     except ResponseCodeException as e:

@@ -60,6 +60,11 @@ class ModelSubmitter:
         self.flush()
         log.debug(f"ModelSubmitter finished, total submitted: {self.total_submitted}")
 
+    def clear(self) -> None:
+        """清空待保存的模型"""
+        self.models.clear()
+        log.debug("Cleared pending models.")
+
     @property
     def pending_count(self) -> int:
         """待保存的模型数量"""

@@ -55,10 +55,21 @@ def refresh_curseforge_with_modify_date() -> bool:
     else:
         curseforge_pool.shutdown()
 
+    failed_count = len(curseforge_expired_modids) - len(projects_detail_info)
+    failed_modids = [
+        modid for modid in curseforge_expired_modids if modid not in projects_detail_info
+    ]
+    log.info(
+        f"CurseForge expired data sync finished, total: {len(curseforge_expired_modids)}, "
+        f"success: {len(projects_detail_info)}, failed: {failed_count}, "
+        f"failed modids: {failed_modids if failed_modids else 'None'}"
+    )
+
     if config.telegram_bot:
         notification = RefreshNotification(
             platform=Platform.CURSEFORGE,
             projects_detail_info=projects_detail_info,
+            failed_count=failed_count,
         )
         notification.send_to_telegram()
         log.info("CurseForge refresh message sent to telegram.")
