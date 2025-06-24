@@ -52,6 +52,9 @@ def sync_project_all_version(project_id: str, need_to_cache: bool = True) -> int
     latest_version_id_list = []
 
     with ModelSubmitter() as submitter:
+        if len(res) == 0:
+            log.warning(f"Project {project_id} has no versions, the response maybe broken, skipping")
+            return 0
         for version in res:
             latest_version_id_list.append(version["id"])
             for file in version["files"]:
@@ -97,11 +100,14 @@ def sync_project(project_id: str) -> Optional[ProjectDetail]:
         res = get_project(project_id)
         with ModelSubmitter() as submitter:
             project_model = Project(**res)
-            submitter.add(project_model)
             total_count = sync_project_all_version(
                 project_id,
                 need_to_cache=project_model.project_type == "mod",
             )
+            if total_count == 0:
+                return None
+            # 最后再添加，以防未成功刷新版本列表而更新 Project 信息
+            submitter.add(project_model)
             return ProjectDetail(
                 id=project_id, name=res["slug"], version_count=total_count
             )

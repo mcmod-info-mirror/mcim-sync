@@ -164,6 +164,9 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
                 if version_count is None:
                     return None
 
+                # 最后再添加，以防未成功刷新版本列表而更新 Mod 信息
+                submitter.add(mod_model)
+
                 return ProjectDetail(
                     id=res["id"],
                     name=res["name"],
@@ -172,8 +175,6 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
             else:
                 log.debug(f"Mod {modId} gameId is not 432")
 
-            # 最后再添加，以防未成功刷新版本列表而更新 Mod 信息
-            submitter.add(mod_model)
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
