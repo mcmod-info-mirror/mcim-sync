@@ -127,9 +127,9 @@ def sync_mod_all_files_at_once(
 
     page = Pagination(**res["pagination"])
 
-    if page.resultCount != page.totalCount:
+    if page.resultCount != page.totalCount or len(file_id_list) != page.resultCount:
         log.warning(
-            f"ResultCount {page.resultCount} != TotalCount {page.totalCount} for mod {modId}, response maybe incomplete, passing sync"
+            f"ResultCount {page.resultCount} != TotalCount {page.totalCount} for mod {modId}, or the count of files != resultCount, response maybe incomplete, passing sync"
         )
         return None
     removed_count = mongodb_engine.remove(
