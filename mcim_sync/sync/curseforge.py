@@ -117,21 +117,32 @@ def sync_mod_all_files(
 def sync_mod_all_files_at_once(
     modId: int, latestFiles: List[dict], need_to_cache: bool = True
 ) -> Optional[int]:
-    res = get_mod_files(modId, index=0, pageSize=10000)
+    max_retries = 3
+    page_size= 10000
+    for i in range(max_retries):
+        res = get_mod_files(modId, index=0, pageSize=page_size)
+
+        file_id_list = [file["id"] for file in res["data"]]
+
+        page = Pagination(**res["pagination"])
+
+        if page.resultCount != page.totalCount or len(file_id_list) != page.resultCount:
+            log.warning(
+                f"ResultCount {page.resultCount} != TotalCount {page.totalCount} for mod {modId}, or the count of files != resultCount, response maybe incomplete, passing sync, retrying {i+1}/{max_retries}"
+            )
+            # time.sleep(1)
+            page_size -= 1
+            continue
+        else:
+            break
+    else:
+        log.error(f"Failed to get all files for mod {modId} after {max_retries} retries")
+        return None
 
     append_model_from_files_res(
         res, latestFiles=latestFiles, need_to_cache=need_to_cache
     )
 
-    file_id_list = [file["id"] for file in res["data"]]
-
-    page = Pagination(**res["pagination"])
-
-    if page.resultCount != page.totalCount or len(file_id_list) != page.resultCount:
-        log.warning(
-            f"ResultCount {page.resultCount} != TotalCount {page.totalCount} for mod {modId}, or the count of files != resultCount, response maybe incomplete, passing sync"
-        )
-        return None
     removed_count = mongodb_engine.remove(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
