@@ -79,27 +79,27 @@ def refresh_modrinth_with_modify_date() -> bool:
     return True
 
 
-def fetch_modrinth_project_ids_from_queue():
+def fetch_modrinth_not_found_ids_from_queue():
     """
     获取 modrinth 队列中的所有 project ids，检查是否真的存在
     """
     project_ids = []
     avaliable_project_ids = check_modrinth_project_ids_available()
     project_ids.extend(avaliable_project_ids)
-    log.info(f"Modrinth project ids available: {len(avaliable_project_ids)}")
-    avaliable_version_ids = check_modrinth_version_ids_available()
-    project_ids.extend(avaliable_version_ids)
-    log.info(f"Modrinth version ids available: {len(avaliable_version_ids)}")
-    avaliable_hashes = check_modrinth_hashes_available()
-    project_ids.extend(avaliable_hashes)
-    log.info(f"Modrinth hashes available: {len(avaliable_hashes)}")
+    log.info(f"Modrinth project ids queue available project_ids: {len(avaliable_project_ids)}")
+    avaliable_project_ids = check_modrinth_version_ids_available()
+    project_ids.extend(avaliable_project_ids)
+    log.info(f"Modrinth version ids queue available project_ids: {len(avaliable_project_ids)}")
+    avaliable_project_ids = check_modrinth_hashes_available()
+    project_ids.extend(avaliable_project_ids)
+    log.info(f"Modrinth hashes queue available project_ids: {len(avaliable_project_ids)}")
     return project_ids
 
 
 def sync_modrinth_queue() -> bool:
     log.info("Start fetching modrinth queue.")
 
-    project_ids = fetch_modrinth_project_ids_from_queue()
+    project_ids = fetch_modrinth_not_found_ids_from_queue()
     project_ids = list(set(project_ids))
     log.info(f"Total project ids: {len(project_ids)} to check.")
 

@@ -77,17 +77,17 @@ def refresh_curseforge_with_modify_date() -> bool:
     return True
 
 
-def fetch_curseforge_fileids_from_queue():
+def fetch_curseforge_not_found_ids_from_queue():
     modids = []
     avaliable_modids = check_curseforge_modids_available()
     modids.extend(avaliable_modids)
-    log.info(f"CurseForge modids available: {len(avaliable_modids)}")
-    avaliable_fileids = check_curseforge_fileids_available()
-    modids.extend(avaliable_fileids)
-    log.info(f"CurseForge fileids available: {len(avaliable_fileids)}")
-    avaliable_fingerprints = check_curseforge_fingerprints_available()
-    modids.extend(avaliable_fingerprints)
-    log.info(f"CurseForge fingerprints available: {len(avaliable_fingerprints)}")
+    log.info(f"CurseForge modids queue available modids: {len(avaliable_modids)}")
+    avaliable_modids = check_curseforge_fileids_available()
+    modids.extend(avaliable_modids)
+    log.info(f"CurseForge fileids queue available modids: {len(avaliable_modids)}")
+    avaliable_modids = check_curseforge_fingerprints_available()
+    modids.extend(avaliable_modids)
+    log.info(f"CurseForge fingerprints queue available modids: {len(avaliable_modids)}")
 
     modids = [modid for modid in modids if modid >= 30000]  # 排除掉 0-30000 的 modid
     return modids
@@ -96,7 +96,7 @@ def fetch_curseforge_fileids_from_queue():
 def sync_curseforge_queue() -> bool:
     log.info("Start fetching curseforge queue.")
 
-    modids = fetch_curseforge_fileids_from_queue()
+    modids = fetch_curseforge_not_found_ids_from_queue()
 
     # 检查这些 modid 是否是新的
     new_modids = check_new_modids(modids=modids)
