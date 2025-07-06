@@ -9,11 +9,11 @@
 
 ## 缓存思路
 
-[mcim-api](https://github.com/mcmod-info-mirror/mcim-api) 会提供数个 redis 集合，所有不存在于数据库中的请求参数都会被添加进去，其中有的是真的新 Mod 未收录，大部分为无效请求参数而已
+[mcim-rust-api](https://github.com/mcmod-info-mirror/mcim-rust-api) 会提供数个 redis 集合，所有不存在于数据库中的请求参数都会被添加进去，其中有的是真的新 Mod 未收录，大部分为无效请求参数而已
 
 此任务将定时检查所有捕捉到的 `modId` `fileId` `fingerprint` `project_id` `version_id` `hash` 并同时转为对应的 `modId` 和 `project_id`，其后统一拉取。
 
-这将保证 MCIM 可以及时捕捉到新 Mod。
+这将让 MCIM 可以及时捕捉到新 Mod。
 
 ---
 
@@ -23,24 +23,24 @@
 
 ---
 
-当前任务执行间隔如下
-- 检查已有 Mod 信息：7200s
-- 从队列中捕捉新 Mod: 3600s
-
 缓存统计信息见 [mcim-statistics](https://mod.mcimirror.top/statistics)
 
 ```json5
-// 2025-03-22
+// 2025-07-06
 {
-  "curseforge": {
-    "mod": 115945,
-    "file": 1111429,
-    "fingerprint": 1122645
-  },
-  "modrinth": {
-    "project": 51188,
-    "version": 515585,
-    "file": 572604
-  }
+    "translate": {
+        "curseforge": 151927,
+        "modrinth": 69986
+    },
+    "modrinth": {
+        "file": 733244,
+        "version": 655893,
+        "project": 70879
+    },
+    "curseforge": {
+        "file": 1277446,
+        "mod": 154101,
+        "fingerprint": 1315687
+    }
 }
 ```
