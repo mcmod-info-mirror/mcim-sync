@@ -78,7 +78,7 @@ def sync_project_all_version(project_id: str, need_to_cache: bool = True) -> int
                                 path=file_model.hashes.sha1,
                             )  # type: ignore
                         )
-                        file_model.file_cdn_cached = True
+                        # file_model.file_cdn_cached = True
                 submitter.add(file_model)
             submitter.add(Version(**version))
 

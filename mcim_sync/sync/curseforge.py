@@ -77,7 +77,7 @@ def append_model_from_files_res(
                                 mtime=int(time.time()),
                             )  # type: ignore
                         )
-                        file_model.file_cdn_cached = True
+                        # file_model.file_cdn_cached = True
             submitter.add(file_model)
 
 
