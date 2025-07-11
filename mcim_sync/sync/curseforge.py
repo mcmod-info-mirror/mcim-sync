@@ -20,11 +20,11 @@ from mcim_sync.apis.curseforge import (
     get_mutil_mods_info,
     get_search_result,
 )
-from mcim_sync.models.database.file_cdn import File as FileCDN
+# from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
-from mcim_sync.utils import find_hash_in_curseforge_hashes
+# from mcim_sync.utils import find_hash_in_curseforge_hashes
 from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
 from mcim_sync.config import Config
 from mcim_sync.exceptions import ResponseCodeException
@@ -53,31 +53,31 @@ def append_model_from_files_res(
                     latestFiles=latestFiles,  # type: ignore
                 )
             )
-            file_sha1 = find_hash_in_curseforge_hashes(file["hashes"], 1)
+            # file_sha1 = find_hash_in_curseforge_hashes(file["hashes"], 1)
 
-            if config.file_cdn:
-                if (
-                    file_model.fileLength is not None
-                    and file_model.downloadCount is not None
-                    and file_model.downloadUrl is not None
-                    and file_sha1
-                ):
-                    if (
-                        need_to_cache
-                        and file_model.gameId == 432
-                        and file_model.fileLength <= MAX_LENGTH
-                        and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
-                    ):
-                        submitter.add(
-                            FileCDN(
-                                sha1=file_sha1,
-                                url=file_model.downloadUrl,
-                                path=file_sha1,
-                                size=file_model.fileLength,
-                                mtime=int(time.time()),
-                            )  # type: ignore
-                        )
-                        # file_model.file_cdn_cached = True
+            # if config.file_cdn:
+            #     if (
+            #         file_model.fileLength is not None
+            #         and file_model.downloadCount is not None
+            #         and file_model.downloadUrl is not None
+            #         and file_sha1
+            #     ):
+            #         if (
+            #             need_to_cache
+            #             and file_model.gameId == 432
+            #             and file_model.fileLength <= MAX_LENGTH
+            #             and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
+            #         ):
+            #             submitter.add(
+            #                 FileCDN(
+            #                     sha1=file_sha1,
+            #                     url=file_model.downloadUrl,
+            #                     path=file_sha1,
+            #                     size=file_model.fileLength,
+            #                     mtime=int(time.time()),
+            #                 )  # type: ignore
+            #             )
+            #             file_model.file_cdn_cached = True
             submitter.add(file_model)
 
 
