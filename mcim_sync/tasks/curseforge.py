@@ -17,7 +17,10 @@ from mcim_sync.checker.curseforge import (
     check_new_modids,
     check_newest_search_result,
 )
-from mcim_sync.fetcher.curseforge import fetch_expired_curseforge_data
+from mcim_sync.fetcher.curseforge import (
+    fetch_expired_curseforge_data,
+    fetch_all_curseforge_data,
+)
 from mcim_sync.queues.curseforge import clear_curseforge_all_queues
 from mcim_sync.tasks import create_tasks_pool, curseforge_pause_event
 
@@ -57,7 +60,9 @@ def refresh_curseforge_with_modify_date() -> bool:
 
     failed_count = len(curseforge_expired_modids) - len(projects_detail_info)
     failed_modids = [
-        modid for modid in curseforge_expired_modids if modid not in projects_detail_info
+        modid
+        for modid in curseforge_expired_modids
+        if modid not in projects_detail_info
     ]
     log.info(
         f"CurseForge expired data sync finished, total: {len(curseforge_expired_modids)}, "
@@ -218,30 +223,39 @@ def sync_curseforge_by_search():
     return True
 
 
-# def sync_curseforge_full():
-#     log.info("Start fetching all data.")
-#     total_data = {
-#         "curseforge": 0,
-#     }
+def sync_curseforge_full():
+    log.info("Start fetching curseforge all data.")
 
-#     if SYNC_CURSEFORGE:
-#         curseforge_data = fetch_all_curseforge_data()
-#         log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
-#         total_data["curseforge"] = len(curseforge_data)
+    curseforge_data = fetch_all_curseforge_data()
+    log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
 
-#     # 允许请求
-#     curseforge_pause_event.set()
+    curseforge_pause_event.set()
 
-#     curseforge_pool, curseforge_futures = create_tasks_pool(
-#         sync_mod_all_files, curseforge_data, MAX_WORKERS, "curseforge"
-#     )
+    curseforge_pool, curseforge_futures = create_tasks_pool(
+        sync_mod, curseforge_data, MAX_WORKERS, "curseforge"
+    )
 
-#     log.info(
-#         f"All {len(curseforge_futures)} tasks submitted, waiting for completion..."
-#     )
+    log.info(
+        f"All {len(curseforge_futures)} tasks submitted, waiting for completion..."
+    )
 
-#     for future in as_completed(curseforge_futures):
-#         # 不需要返回值
-#         pass
+    projects_detail_info = []
+    for future in as_completed(curseforge_futures):
+        result = future.result()
+        if result:
+            projects_detail_info.append(result)
+    else:
+        curseforge_pool.shutdown()
 
-#     curseforge_pool.shutdown()
+    failed_count = len(curseforge_data) - len(projects_detail_info)
+    failed_modids = [
+        modid for modid in curseforge_data if modid not in projects_detail_info
+    ]
+
+    log.info(
+        f"CurseForge full sync finished, total: {len(curseforge_data)}, "
+        f"success: {len(projects_detail_info)}, failed: {failed_count}, "
+        f"failed modids: {failed_modids if failed_modids else 'None'}"
+    )
+
+    curseforge_pool.shutdown()

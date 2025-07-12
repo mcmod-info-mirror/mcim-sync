@@ -1,8 +1,7 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 from tenacity import retry, stop_after_attempt, wait_fixed
 from odmantic import query
 from enum import Enum
-import time
 
 from mcim_sync.models.database.curseforge import (
     File,
@@ -20,10 +19,12 @@ from mcim_sync.apis.curseforge import (
     get_mutil_mods_info,
     get_search_result,
 )
+
 # from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
+
 # from mcim_sync.utils import find_hash_in_curseforge_hashes
 from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
 from mcim_sync.config import Config
@@ -87,6 +88,8 @@ def sync_mod_all_files(
     params = {"index": 0, "pageSize": 50}
     file_id_list = []
 
+    original_files_count = mongodb_engine.count(File, File.modId == modId)
+
     while True:
         res = get_mod_files(modId, params["index"], params["pageSize"])
         append_model_from_files_res(
@@ -108,7 +111,7 @@ def sync_mod_all_files(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
     log.info(
-        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files"
+        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_count} files, original files {original_files_count}"
     )
 
     return page.totalCount
@@ -118,7 +121,7 @@ def sync_mod_all_files_at_once(
     modId: int, latestFiles: List[dict], need_to_cache: bool = True
 ) -> Optional[int]:
     max_retries = 3
-    page_size= 10000
+    page_size = 10000
     for i in range(max_retries):
         res = get_mod_files(modId, index=0, pageSize=page_size)
 
@@ -128,7 +131,7 @@ def sync_mod_all_files_at_once(
 
         if page.resultCount != page.totalCount or len(file_id_list) != page.resultCount:
             log.warning(
-                f"ResultCount {page.resultCount} != TotalCount {page.totalCount} for mod {modId}, or the count of files != resultCount, response maybe incomplete, passing sync, retrying {i+1}/{max_retries}"
+                f"ResultCount {page.resultCount} != TotalCount {page.totalCount} for mod {modId}, or the count of files != resultCount, response maybe incomplete, passing sync, retrying {i + 1}/{max_retries}"
             )
             # time.sleep(1)
             page_size -= 1
@@ -136,8 +139,12 @@ def sync_mod_all_files_at_once(
         else:
             break
     else:
-        log.error(f"Failed to get all files for mod {modId} after {max_retries} retries")
+        log.error(
+            f"Failed to get all files for mod {modId} after {max_retries} retries"
+        )
         return None
+
+    original_files_count = mongodb_engine.count(File, File.modId == modId)
 
     append_model_from_files_res(
         res, latestFiles=latestFiles, need_to_cache=need_to_cache
@@ -147,7 +154,7 @@ def sync_mod_all_files_at_once(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
     log.info(
-        f"Finished sync mod {modId}, total {page.totalCount} files, resultCount {page.resultCount}, removed {removed_count} files"
+        f"Finished sync mod {modId}, total {page.totalCount} files, resultCount {page.resultCount}, removed {removed_count} files, existing files {original_files_count}"
     )
 
     return page.totalCount

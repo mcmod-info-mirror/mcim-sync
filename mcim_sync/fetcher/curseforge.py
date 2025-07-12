@@ -1,4 +1,4 @@
-from typing import Union, List, Set
+from typing import Union, List, Set, Optional
 from odmantic import query
 import datetime
 import time
@@ -53,4 +53,3 @@ def fetch_expired_curseforge_data() -> List[int]:
         time.sleep(CURSEFORGE_DELAY)
         log.debug(f"Delay {CURSEFORGE_DELAY} seconds")
     return list(expired_modids)
-
