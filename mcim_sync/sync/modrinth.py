@@ -54,14 +54,21 @@ def sync_project_all_version(project_id: str) -> int:
                 submitter.add(file_model)
             submitter.add(Version(**version))
 
-        removed_count = mongodb_engine.remove(
+        removed_version_count = mongodb_engine.remove(
             Version,
             query.not_in(Version.id, latest_version_id_list),
             Version.project_id == project_id,
         )
+
+        removed_file_count = mongodb_engine.remove(
+            File,
+            query.not_in(File.version_id, latest_version_id_list),
+            File.project_id == project_id,
+        )
+
         total_count = len(res)
         log.info(
-            f"Finished sync project {project_id} versions info, total {total_count} versions, removed {removed_count} versions"
+            f"Finished sync project {project_id} versions info, total {total_count} versions, removed {removed_version_count} versions and {removed_file_count} files"
         )
         return total_count
 
