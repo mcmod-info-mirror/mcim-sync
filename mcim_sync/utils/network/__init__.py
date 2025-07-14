@@ -47,6 +47,7 @@ def request(
     json: Optional[dict] = None,
     timeout: Optional[Union[int, float]] = TIMEOUT,
     ignore_status_code: bool = False,
+    ignore_rate_limit: bool = False,
     **kwargs,
 ) -> httpx.Response:
     """
@@ -61,14 +62,15 @@ def request(
     Returns:
         httpx.Response: 请求结果
     """
-    # 应用域名限速
-    while not domain_rate_limiter.can_make_request(url):
-        wait_time = domain_rate_limiter.wait_time(url)
-        if wait_time > 0:
-            time.sleep(wait_time)
-    
-    # 记录请求
-    domain_rate_limiter.record_request(url)
+    if not ignore_rate_limit:
+        # 检查是否可以发起请求
+        if not domain_rate_limiter.can_make_request(url):
+            wait_time = domain_rate_limiter.wait_time(url)
+            if wait_time > 0:
+                time.sleep(wait_time)
+        
+        # 记录请求
+        domain_rate_limiter.record_request(url)
     
     # 执行实际请求
     if params is not None:
