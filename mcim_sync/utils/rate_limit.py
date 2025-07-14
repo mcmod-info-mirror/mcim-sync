@@ -15,7 +15,7 @@ class DomainRateLimiter:
     """简单的域名限速器"""
     
     def __init__(self):
-        self.config = Config.load()
+        self.domain_rate_limits_config = Config.load().domain_rate_limits
         self.domain_requests: Dict[str, deque] = defaultdict(deque)
         self.locks: Dict[str, threading.Lock] = defaultdict(threading.Lock)
     
@@ -32,10 +32,10 @@ class DomainRateLimiter:
         domain = self.get_domain_from_url(url)
         
         # 如果域名没有配置限速，则允许请求
-        if domain not in self.config.domain_rate_limits:
+        if domain not in self.domain_rate_limits_config:
             return True
         
-        domain_config = self.config.domain_rate_limits[domain]
+        domain_config = self.domain_rate_limits_config[domain]
         current_time = time.time()
         
         with self.locks[domain]:
@@ -53,7 +53,7 @@ class DomainRateLimiter:
         domain = self.get_domain_from_url(url)
         
         # 如果域名没有配置限速，则不记录
-        if domain not in self.config.domain_rate_limits:
+        if domain not in self.domain_rate_limits_config:
             return
         
         current_time = time.time()
@@ -66,10 +66,10 @@ class DomainRateLimiter:
         domain = self.get_domain_from_url(url)
         
         # 如果域名没有配置限速，则不需要等待
-        if domain not in self.config.domain_rate_limits:
+        if domain not in self.domain_rate_limits_config:
             return 0.0
-        
-        domain_config = self.config.domain_rate_limits[domain]
+
+        domain_config = self.domain_rate_limits_config[domain]
         current_time = time.time()
         
         with self.locks[domain]:
@@ -88,10 +88,10 @@ class DomainRateLimiter:
     
     def get_domain_status(self, domain: str) -> Dict:
         """获取域名的限速状态"""
-        if domain not in self.config.domain_rate_limits:
+        if domain not in self.domain_rate_limits_config:
             return {"configured": False}
         
-        domain_config = self.config.domain_rate_limits[domain]
+        domain_config = self.domain_rate_limits_config[domain]
         current_time = time.time()
         
         with self.locks[domain]:
