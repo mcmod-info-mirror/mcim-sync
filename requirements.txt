@@ -1,7 +1,9 @@
-odmantic==1.0.2
+odmantic~=1.0.2
 redis==5.0.1
 httpx>=0.28.1
 loguru==0.7.2
 tenacity==8.3.0
 apscheduler==3.10.4
 python-telegram-bot~=21.10
+pymongo~=4.9
+motor~=3.6

@@ -1,0 +1,17 @@
+[project]
+name = "mcim-sync"
+version = "1.0.0"
+description = "Sync tool for Minecraft CurseForge and Modrinth mods"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "apscheduler==3.10.4",
+    "httpx>=0.28.1",
+    "loguru==0.7.2",
+    "motor~=3.6",
+    "odmantic~=1.0.2",
+    "pymongo~=4.9",
+    "python-telegram-bot~=21.10",
+    "redis==5.0.1",
+    "tenacity==8.3.0",
+]
