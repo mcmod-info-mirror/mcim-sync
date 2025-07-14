@@ -1,6 +1,7 @@
 import pymongo
 import httpx
 import json
+import pymongo.errors
 import pytest
 import os
 
@@ -45,7 +46,7 @@ def insert_recent_curseforge_mod():
                 "classId": classId,
                 "sortField": "11",
                 "sortOrder": "desc",
-                "index": 60,
+                "index": 5,
                 "pageSize": 1,
             },
             headers=headers,
@@ -55,7 +56,11 @@ def insert_recent_curseforge_mod():
 
         mod["_id"] = mod["id"]
         del mod["id"]
-        mongo_db["curseforge_mods"].insert_one(mod)
+        try:
+            mongo_db["curseforge_mods"].insert_one(mod)
+        except pymongo.errors.DuplicateKeyError:
+            print(f"Mod with id {mod['_id']} already exists, skipping insert.")
+            continue
         print(
             f"Inserted recent curseforge mods for classId: {classId}, name: {class_name}, modid {mod['_id']}, name: {mod['name']}"
         )
@@ -82,8 +87,11 @@ def insert_recent_modrinth_project():
     project["_id"] = project["project_id"]
 
     del project["project_id"]
-
-    mongo_db["modrinth_projects"].insert_one(project)
+    try:
+        mongo_db["modrinth_projects"].insert_one(project)
+    except pymongo.errors.DuplicateKeyError:
+        print(f"Project with id {project['_id']} already exists, skipping insert.")
+        return
     print(
         f"Inserted recent modrinth project with id: {project['_id']}, name: {project['title']}"
     )

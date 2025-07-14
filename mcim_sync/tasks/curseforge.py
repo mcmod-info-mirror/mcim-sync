@@ -1,4 +1,5 @@
 from concurrent.futures import as_completed
+from typing import List, Optional
 
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.constans import Platform
@@ -156,7 +157,7 @@ def refresh_curseforge_categories() -> bool:
     return True
 
 
-def sync_curseforge_by_search():
+def sync_curseforge_by_search(class_ids: Optional[List[int]] = None) -> bool:
     """
     从搜索接口拉取 curseforge 的新 Mod
 
@@ -176,7 +177,7 @@ def sync_curseforge_by_search():
         {"id": 6552, "name": "Shaders"},
         {"id": 6945, "name": "Data Packs"},
     ]
-    classIds = [cls["id"] for cls in class_info]
+    classIds = [cls["id"] for cls in class_info] if class_ids is None else class_ids
     new_modids = []
 
     for classId in classIds:
