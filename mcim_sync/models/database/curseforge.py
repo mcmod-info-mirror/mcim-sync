@@ -99,8 +99,6 @@ class File(Model):
     fileFingerprint: Optional[int] = None
     modules: Optional[List[Module]] = None
 
-    # file_cdn_cached: bool = False
-
     sync_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {

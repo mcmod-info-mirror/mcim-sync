@@ -1,17 +1,10 @@
 """
 拉取 Modrinth 信息
-
-version 信息包含了 file 信息，所以拉取 version 信息时，会拉取 version 下的所有 file 信息
-
-sync_project 只刷新 project 信息，不刷新 project 下的 version 信息
-
-刷新 project 信息后，会刷新 project 下的所有 version 信息，以及 version 下的所有 file 信息，不刷新 project 自身信息
 """
 
 from tenacity import retry, stop_after_attempt, wait_fixed
-from typing import List, Optional, Union
+from typing import List, Optional
 from odmantic import query
-import time
 
 from mcim_sync.models.database.modrinth import (
     Project,
@@ -32,7 +25,6 @@ from mcim_sync.apis.modrinth import (
     get_multi_versions_info,
     get_search_result,
 )
-# from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.exceptions import ResponseCodeException
 from mcim_sync.config import Config
@@ -44,10 +36,8 @@ from mcim_sync.utils.loger import log
 config = Config.load()
 
 API = config.modrinth_api
-MAX_LENGTH = config.max_file_size
 
-
-def sync_project_all_version(project_id: str, need_to_cache: bool = True) -> int:
+def sync_project_all_version(project_id: str) -> int:
     res = get_project_all_version(project_id)
     latest_version_id_list = []
 
@@ -61,24 +51,6 @@ def sync_project_all_version(project_id: str, need_to_cache: bool = True) -> int
                 file["version_id"] = version["id"]
                 file["project_id"] = version["project_id"]
                 file_model = File(**file)
-                # if config.file_cdn:
-                #     if (
-                #         need_to_cache
-                #         and file_model.size <= MAX_LENGTH
-                #         and file_model.filename
-                #         and file_model.url
-                #         and file_model.hashes.sha1
-                #     ):
-                #         submitter.add(
-                #             FileCDN(
-                #                 url=file_model.url,
-                #                 sha1=file_model.hashes.sha1,
-                #                 size=file_model.size,
-                #                 mtime=int(time.time()),
-                #                 path=file_model.hashes.sha1,
-                #             )  # type: ignore
-                #         )
-                #         file_model.file_cdn_cached = True
                 submitter.add(file_model)
             submitter.add(Version(**version))
 
@@ -102,7 +74,6 @@ def sync_project(project_id: str) -> Optional[ProjectDetail]:
             project_model = Project(**res)
             total_count = sync_project_all_version(
                 project_id,
-                need_to_cache=project_model.project_type == "mod",
             )
             if total_count == 0:
                 return None

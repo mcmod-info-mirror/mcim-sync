@@ -11,10 +11,6 @@ if os.getenv("TZ") is not None:
 
 config = Config.load()
 
-LOG_PATH = config.log_path
-if config.log_to_file:
-    os.makedirs(LOG_PATH, exist_ok=True)
-
 EXCLUDED_KEYWORDS = ["httpx"]
 
 
@@ -49,14 +45,10 @@ class Logger:
 
     def __init__(self):
         # 文件的命名
-        log_path = os.path.join(LOG_PATH, "{time:YYYY-MM-DD}.log")
         self.logger = logger
         # 清空所有设置
         self.logger.remove()
-        # 判断日志文件夹是否存在，不存则创建
-        if not os.path.exists(LOG_PATH):
-            os.makedirs(LOG_PATH)
-        # 添加控制台输出的格式,sys.stdout为输出到屏幕;关于这些配置还需要自定义请移步官网查看相关参数说明
+        # 添加控制台输出的配置
         self.logger.add(
             sys.stdout,
             format=LOGGING_FORMAT,
@@ -66,23 +58,6 @@ class Logger:
             filter=filter,
             serialize=True,
         )
-        if config.log_to_file:
-            # 日志写入文件
-            self.logger.add(
-                log_path,  # 写入目录指定文件
-                format=LOGGING_FORMAT,
-                encoding="utf-8",
-                retention="7 days",  # 设置历史保留时长
-                backtrace=True,  # 回溯
-                diagnose=True,  # 诊断
-                enqueue=True,  # 异步写入
-                rotation="00:00",  # 每日更新时间
-                # rotation="5kb",  # 切割，设置文件大小，rotation="12:00"，rotation="1 week"
-                # filter="my_module"  # 过滤模块
-                # compression="zip"   # 文件压缩
-                level="INFO" if not config.debug else "DEBUG",
-                filter=filter,
-            )
 
     def get_logger(self):
         return self.logger

@@ -20,7 +20,6 @@ from mcim_sync.apis.curseforge import (
     get_search_result,
 )
 
-# from mcim_sync.models.database.file_cdn import File as FileCDN
 from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
@@ -33,8 +32,6 @@ from mcim_sync.exceptions import ResponseCodeException
 config = Config.load()
 
 API = config.curseforge_api
-MAX_LENGTH = config.max_file_size
-MIN_DOWNLOAD_COUNT = 0
 HEADERS = {
     "x-api-key": config.curseforge_api_key,
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.54",
@@ -42,7 +39,7 @@ HEADERS = {
 
 
 def append_model_from_files_res(
-    res, latestFiles: List[dict], need_to_cache: bool = True
+    res, latestFiles: List[dict]
 ):
     with ModelSubmitter() as submitter:
         for file in res["data"]:
@@ -54,36 +51,11 @@ def append_model_from_files_res(
                     latestFiles=latestFiles,  # type: ignore
                 )
             )
-            # file_sha1 = find_hash_in_curseforge_hashes(file["hashes"], 1)
-
-            # if config.file_cdn:
-            #     if (
-            #         file_model.fileLength is not None
-            #         and file_model.downloadCount is not None
-            #         and file_model.downloadUrl is not None
-            #         and file_sha1
-            #     ):
-            #         if (
-            #             need_to_cache
-            #             and file_model.gameId == 432
-            #             and file_model.fileLength <= MAX_LENGTH
-            #             and file_model.downloadCount >= MIN_DOWNLOAD_COUNT
-            #         ):
-            #             submitter.add(
-            #                 FileCDN(
-            #                     sha1=file_sha1,
-            #                     url=file_model.downloadUrl,
-            #                     path=file_sha1,
-            #                     size=file_model.fileLength,
-            #                     mtime=int(time.time()),
-            #                 )  # type: ignore
-            #             )
-            #             file_model.file_cdn_cached = True
             submitter.add(file_model)
 
 
 def sync_mod_all_files(
-    modId: int, latestFiles: List[dict], need_to_cache: bool = True
+    modId: int, latestFiles: List[dict]
 ) -> int:
     params = {"index": 0, "pageSize": 50}
     file_id_list = []
@@ -93,7 +65,7 @@ def sync_mod_all_files(
     while True:
         res = get_mod_files(modId, params["index"], params["pageSize"])
         append_model_from_files_res(
-            res, latestFiles=latestFiles, need_to_cache=need_to_cache
+            res, latestFiles=latestFiles
         )
         file_id_list.extend([file["id"] for file in res["data"]])
 
@@ -118,7 +90,7 @@ def sync_mod_all_files(
 
 
 def sync_mod_all_files_at_once(
-    modId: int, latestFiles: List[dict], need_to_cache: bool = True
+    modId: int, latestFiles: List[dict]
 ) -> Optional[int]:
     max_retries = 3
     page_size = 10000
@@ -147,7 +119,7 @@ def sync_mod_all_files_at_once(
     original_files_count = mongodb_engine.count(File, File.modId == modId)
 
     append_model_from_files_res(
-        res, latestFiles=latestFiles, need_to_cache=need_to_cache
+        res, latestFiles=latestFiles
     )
 
     removed_count = mongodb_engine.remove(
@@ -170,13 +142,11 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
                 # version_count = sync_mod_all_files(
                 #     modId,
                 #     latestFiles=res["latestFiles"],
-                #     need_to_cache=True if res["classId"] == 6 else False,
                 # )
 
                 version_count = sync_mod_all_files_at_once(
                     modId,
                     latestFiles=res["latestFiles"],
-                    need_to_cache=True if res["classId"] == 6 else False,
                 )
 
                 if version_count is None:

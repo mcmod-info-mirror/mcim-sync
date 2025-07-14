@@ -62,28 +62,33 @@ class DomainRateLimitModel(BaseModel):
 
 class ConfigModel(BaseModel):
     debug: bool = False
+    
+    # 数据库配置
     mongodb: MongodbConfigModel = MongodbConfigModel()
     redis: RedisConfigModel = RedisConfigModel()
+
     job_config: JobConfigModel = JobConfigModel()
     interval: JobInterval = JobInterval()
+    
     max_workers: int = 8
     curseforge_chunk_size: int = 1000
     modrinth_chunk_size: int = 100
     curseforge_delay: Union[float, int] = 1
     modrinth_delay: Union[float, int] = 1
+
+    # API 配置
     curseforge_api_key: str = "<api key>"
     curseforge_api: str = "https://api.curseforge.com"  # 不然和api的拼接对不上
     modrinth_api: str = "https://api.modrinth.com"
+    
+    # Telegram Bot 配置
     telegram_bot: bool = False
     bot_api: str = "https://api.telegram.org/bot"
     bot_token: str = "<bot token>"
     chat_id: str = "<chat id>"
-    telegram_proxy: Optional[str] = None
+    
     proxies: Optional[str] = None
-    file_cdn: bool = False
-    max_file_size: int = 1024 * 1024 * 20  # 20MB
-    log_to_file: bool = False
-    log_path: str = "./logs"
+
     # 域名限速配置
     domain_rate_limits: Dict[str, DomainRateLimitModel] = {
         "api.curseforge.com": DomainRateLimitModel(max_requests=100, time_window=60),

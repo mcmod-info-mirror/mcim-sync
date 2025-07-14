@@ -90,8 +90,6 @@ class File(Model):
     version_id: str
     project_id: str
 
-    # file_cdn_cached: Optional[bool] = False
-
     sync_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {"collection": "modrinth_files"}
