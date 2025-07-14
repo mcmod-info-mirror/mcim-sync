@@ -3,7 +3,6 @@
 """
 
 import httpx
-import time
 from typing import Optional, Union
 
 from tenacity import retry, stop_after_attempt, retry_if_not_exception_type
@@ -63,15 +62,9 @@ def request(
         httpx.Response: 请求结果
     """
     if not ignore_rate_limit:
-        # 检查是否可以发起请求
-        if not domain_rate_limiter.can_make_request(url):
-            wait_time = domain_rate_limiter.wait_time(url)
-            if wait_time > 0:
-                time.sleep(wait_time)
-        
-        # 记录请求
-        domain_rate_limiter.record_request(url)
-    
+        if not domain_rate_limiter.acquire_token(url):
+            raise TimeoutError(f"Rate limit timeout for {url}")
+
     # 执行实际请求
     if params is not None:
         params = {k: v for k, v in params.items() if v is not None}
@@ -106,16 +99,3 @@ def request(
                     msg=res.text,
                 )
     return res
-
-
-def get_domain_status(domain: str) -> dict:
-    """
-    获取域名的限速状态
-    
-    Args:
-        domain (str): 域名
-        
-    Returns:
-        dict: 限速状态信息
-    """
-    return domain_rate_limiter.get_domain_status(domain)

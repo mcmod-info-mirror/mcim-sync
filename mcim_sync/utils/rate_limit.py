@@ -1,115 +1,156 @@
-"""
-域名限速器模块
-"""
-
 import time
 import threading
-from collections import deque, defaultdict
-from urllib.parse import urlparse
 from typing import Dict
+from urllib.parse import urlparse
 
 from mcim_sync.config import Config
 
 
+class TokenBucket:
+    """令牌桶"""
+
+    def __init__(self, capacity: int, refill_rate: float, initial_tokens: int = None):
+        self.capacity = capacity
+        self.refill_rate = refill_rate
+        self.tokens = initial_tokens if initial_tokens is not None else capacity
+        self.last_refill_time = time.monotonic()
+        self.condition = threading.Condition()
+        self.waiting_count = 0
+        self._start_refill_thread()
+
+    def _start_refill_thread(self):
+        """启动后台线程定期补充令牌"""
+
+        def refill_loop():
+            while True:
+                with self.condition:
+                    old_tokens = self.tokens
+                    self._refill()
+                    new_tokens = int(self.tokens - old_tokens)
+                    if new_tokens > 0 and self.waiting_count > 0:
+                        for _ in range(min(new_tokens, self.waiting_count)):
+                            self.condition.notify()
+                time.sleep(1.0 / self.refill_rate)
+
+        thread = threading.Thread(target=refill_loop, daemon=True)
+        thread.start()
+
+    def _refill(self):
+        """补充令牌 - 必须在持有锁的情况下调用"""
+        current_time = time.monotonic()
+        time_passed = current_time - self.last_refill_time
+        tokens_to_add = time_passed * self.refill_rate
+        self.tokens = min(self.capacity, self.tokens + tokens_to_add)
+        self.last_refill_time = current_time
+
+    def acquire(self, tokens: int = 1, timeout: float = None) -> bool:
+        """
+        获取令牌，如果没有则等待
+        """
+        with self.condition:
+            self._refill()
+            if self.tokens >= tokens:
+                self.tokens -= tokens
+                return True
+
+            self.waiting_count += 1
+            end_time = None if timeout is None else time.monotonic() + timeout
+
+            try:
+                while self.tokens < tokens:
+                    if timeout is None:
+                        self.condition.wait()
+                    else:
+                        remaining = end_time - time.monotonic()
+                        if remaining <= 0 or not self.condition.wait(timeout=remaining):
+                            return False
+                    self._refill()
+                self.tokens -= tokens
+                return True
+            finally:
+                self.waiting_count -= 1
+
+    def get_status(self) -> Dict:
+        """获取状态"""
+        with self.condition:
+            self._refill()
+            return {
+                "capacity": self.capacity,
+                "current_tokens": self.tokens,
+                "refill_rate": self.refill_rate,
+                "waiting_requests": self.waiting_count,
+                "utilization": (self.capacity - self.tokens) / self.capacity,
+            }
+
+
 class DomainRateLimiter:
-    """简单的域名限速器"""
-    
+    """基于令牌桶的域名限速器"""
+
     def __init__(self):
         self.domain_rate_limits_config = Config.load().domain_rate_limits
-        self.domain_requests: Dict[str, deque] = defaultdict(deque)
-        self.locks: Dict[str, threading.Lock] = defaultdict(threading.Lock)
-    
+        self.token_buckets: Dict[str, TokenBucket] = {}
+        self.lock = threading.Lock()
+
     def get_domain_from_url(self, url: str) -> str:
         """从URL中提取域名"""
         try:
             parsed = urlparse(url)
-            return parsed.netloc.lower()
+            return parsed.hostname.lower() if parsed.hostname else "unknown"
         except Exception:
             return "unknown"
-    
-    def can_make_request(self, url: str) -> bool:
-        """检查是否可以向指定URL发起请求"""
+
+    def _get_token_bucket(self, domain: str) -> TokenBucket:
+        """获取域名对应的令牌桶"""
+        with self.lock:
+            bucket = self.token_buckets.get(domain)
+            if bucket is not None:
+                return bucket
+
+            config = self.domain_rate_limits_config.get(domain)
+            if config is None:
+                raise ValueError(f"Domain '{domain}' not configured in rate limiter")
+
+            bucket = TokenBucket(
+                capacity=config.capacity,
+                refill_rate=config.refill_rate,
+                initial_tokens=config.initial_tokens,
+            )
+            self.token_buckets[domain] = bucket
+            return bucket
+
+    def acquire_token(self, url: str, timeout: float = None) -> bool:
+        """
+        获取令牌，如果没有则等待
+        """
         domain = self.get_domain_from_url(url)
-        
-        # 如果域名没有配置限速，则允许请求
+
         if domain not in self.domain_rate_limits_config:
             return True
-        
-        domain_config = self.domain_rate_limits_config[domain]
-        current_time = time.time()
-        
-        with self.locks[domain]:
-            requests = self.domain_requests[domain]
-            
-            # 清理超出时间窗口的请求记录
-            while requests and current_time - requests[0] > domain_config.time_window:
-                requests.popleft()
-            
-            # 检查是否超过最大请求数
-            return len(requests) < domain_config.max_requests
-    
-    def record_request(self, url: str):
-        """记录请求"""
-        domain = self.get_domain_from_url(url)
-        
-        # 如果域名没有配置限速，则不记录
-        if domain not in self.domain_rate_limits_config:
-            return
-        
-        current_time = time.time()
-        
-        with self.locks[domain]:
-            self.domain_requests[domain].append(current_time)
-    
-    def wait_time(self, url: str) -> float:
-        """计算需要等待的时间"""
-        domain = self.get_domain_from_url(url)
-        
-        # 如果域名没有配置限速，则不需要等待
-        if domain not in self.domain_rate_limits_config:
-            return 0.0
 
-        domain_config = self.domain_rate_limits_config[domain]
-        current_time = time.time()
-        
-        with self.locks[domain]:
-            requests = self.domain_requests[domain]
-            
-            # 清理超出时间窗口的请求记录
-            while requests and current_time - requests[0] > domain_config.time_window:
-                requests.popleft()
-            
-            # 如果请求数已满，计算等待时间
-            if len(requests) >= domain_config.max_requests:
-                oldest_request = requests[0]
-                return domain_config.time_window - (current_time - oldest_request)
-            
-            return 0.0
-    
+        try:
+            bucket = self._get_token_bucket(domain)
+        except ValueError:
+            return True  # fallback for dynamic change
+
+        return bucket.acquire(timeout=timeout)
+
     def get_domain_status(self, domain: str) -> Dict:
         """获取域名的限速状态"""
         if domain not in self.domain_rate_limits_config:
             return {"configured": False}
-        
-        domain_config = self.domain_rate_limits_config[domain]
-        current_time = time.time()
-        
-        with self.locks[domain]:
-            requests = self.domain_requests[domain]
-            
-            # 清理超出时间窗口的请求记录
-            while requests and current_time - requests[0] > domain_config.time_window:
-                requests.popleft()
-            
-            return {
-                "configured": True,
-                "max_requests": domain_config.max_requests,
-                "time_window": domain_config.time_window,
-                "current_requests": len(requests),
-                "remaining_requests": domain_config.max_requests - len(requests),
-                "next_reset_time": requests[0] + domain_config.time_window if requests else current_time
-            }
 
+        bucket = self._get_token_bucket(domain)
+        status = bucket.get_status()
+        config = self.domain_rate_limits_config[domain]
 
-# 全局限速器实例
+        return {
+            "configured": True,
+            "algorithm": "token_bucket",
+            "capacity": config.capacity,
+            "refill_rate": config.refill_rate,
+            "current_tokens": status["current_tokens"],
+            "waiting_requests": status["waiting_requests"],
+            "utilization": status["utilization"],
+        }
+
 domain_rate_limiter = DomainRateLimiter()
