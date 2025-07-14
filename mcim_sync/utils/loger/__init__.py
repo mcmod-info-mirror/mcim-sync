@@ -18,13 +18,15 @@ if config.log_to_file:
 EXCLUDED_KEYWORDS = ["httpx"]
 
 
-LOGGING_FORMAT = "<green>{time:YYYYMMDD HH:mm:ss}</green> | "  # 颜色>时间
-"{process.name} | "  # 进程名
-"{thread.name} | "  # 进程名
-"<cyan>{module}</cyan>.<cyan>{function}</cyan> | "  # 模块名.方法名
-":<cyan>{line}</cyan> | "  # 行号
-"<level>{level}</level>: "  # 等级
-"<level>{message}</level>"  # 日志内容
+LOGGING_FORMAT = (
+    "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "  # 时间
+    "{process.name} | "  # 进程名
+    "{thread.name} | "  # 线程名
+    "<cyan>{module}</cyan>.<cyan>{function}</cyan> | "  # 模块名.方法名
+    "<cyan>{line}</cyan> | "  # 行号
+    "<level>{level}</level>: "  # 等级
+    "<level>{message}</level>"  # 日志内容
+)
 
 
 def filter(record) -> bool:
