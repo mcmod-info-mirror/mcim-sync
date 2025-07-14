@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from mcim_sync.utils.network import request
 from mcim_sync.config import Config

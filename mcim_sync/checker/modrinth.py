@@ -1,8 +1,7 @@
-from typing import Union, List, Set, Tuple
+from typing import Union, List, Set
 import datetime
-import time
 
-from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
+from mcim_sync.database.mongodb import raw_mongo_client
 from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 from mcim_sync.models.database.modrinth import Project

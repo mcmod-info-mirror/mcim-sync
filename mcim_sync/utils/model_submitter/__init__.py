@@ -1,9 +1,7 @@
-from typing import Union, List, Set, TypeVar
+from typing import List
 from odmantic import Model
 from enum import Enum
 
-from mcim_sync.models.database.curseforge import Mod
-from mcim_sync.models.database.modrinth import Project
 from mcim_sync.database.mongodb import sync_mongo_engine
 from mcim_sync.utils.loger import log
 

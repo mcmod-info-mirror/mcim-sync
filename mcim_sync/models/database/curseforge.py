@@ -1,5 +1,5 @@
-from odmantic import Model, Field, EmbeddedModel
-from pydantic import BaseModel, field_serializer, model_validator
+from odmantic import Model, Field
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 

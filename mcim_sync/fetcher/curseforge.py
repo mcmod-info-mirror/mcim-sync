@@ -1,9 +1,7 @@
-from typing import Union, List, Set, Optional
-from odmantic import query
-import datetime
+from typing import Union, List
 import time
 
-from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
+from mcim_sync.database.mongodb import sync_mongo_engine
 from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 from mcim_sync.models.database.curseforge import Mod

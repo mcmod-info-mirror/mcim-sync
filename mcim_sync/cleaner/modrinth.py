@@ -1,6 +1,6 @@
-from typing import Union, List, Set
+from typing import List
 
-from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
+from mcim_sync.database.mongodb import raw_mongo_client
 from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 

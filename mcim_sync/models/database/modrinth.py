@@ -1,7 +1,7 @@
 from odmantic import Model, Field, EmbeddedModel
-from pydantic import BaseModel, field_serializer, field_validator, model_validator
+from pydantic import BaseModel
 
-from typing import List, Optional, Union
+from typing import List, Optional
 from datetime import datetime
 
 class DonationUrl(BaseModel):

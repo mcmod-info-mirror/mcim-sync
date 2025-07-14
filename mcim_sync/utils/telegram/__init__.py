@@ -1,5 +1,4 @@
-from typing import List, Dict, Union, Optional
-from pydantic import BaseModel
+from typing import List, Optional
 import tenacity
 from abc import ABC, abstractmethod
 from telegram.helpers import escape_markdown as _escape_markdown

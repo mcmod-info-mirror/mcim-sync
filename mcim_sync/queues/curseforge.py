@@ -1,9 +1,7 @@
-from typing import Union, List, Set
-from odmantic import query
+from typing import List
 
 
 from mcim_sync.database._redis import sync_redis_engine
-from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 
 config = Config.load()
