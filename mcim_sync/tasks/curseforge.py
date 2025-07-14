@@ -22,7 +22,7 @@ from mcim_sync.fetcher.curseforge import (
     fetch_all_curseforge_data,
 )
 from mcim_sync.queues.curseforge import clear_curseforge_all_queues
-from mcim_sync.tasks import create_tasks_pool, curseforge_pause_event
+from mcim_sync.tasks import create_tasks_pool
 
 config = Config.load()
 
@@ -43,7 +43,6 @@ def refresh_curseforge_with_modify_date() -> bool:
     log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
     log.info("Start syncing CurseForge expired data...")
 
-    curseforge_pause_event.set()
     curseforge_pool, curseforge_futures = create_tasks_pool(
         sync_mod,  # 需要 ProjectDetail 返回值
         curseforge_expired_modids,
@@ -108,7 +107,6 @@ def sync_curseforge_queue() -> bool:
     log.info(f"New modids: {new_modids}, count: {len(new_modids)}")
 
     if modids:
-        curseforge_pause_event.set()
         # pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
         pool, futures = create_tasks_pool(
             sync_mod, new_modids, MAX_WORKERS, "sync_curseforge"
@@ -196,7 +194,6 @@ def sync_curseforge_by_search():
 
     log.info(f"CurseForge new modids fetched: {len(new_modids)}")
     if new_modids:
-        curseforge_pause_event.set()
         pool, futures = create_tasks_pool(
             sync_mod, new_modids, MAX_WORKERS, "sync_curseforge_by_search"
         )
@@ -228,8 +225,6 @@ def sync_curseforge_full():
 
     curseforge_data = fetch_all_curseforge_data()
     log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
-
-    curseforge_pause_event.set()
 
     curseforge_pool, curseforge_futures = create_tasks_pool(
         sync_mod, curseforge_data, MAX_WORKERS, "curseforge"

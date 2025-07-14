@@ -1,8 +1,7 @@
 import json
 import os
-from typing import Optional, Union
-from pydantic import BaseModel, ValidationError, field_validator
-from enum import Enum
+from typing import Optional, Union, Dict
+from pydantic import BaseModel, field_validator
 
 # config path
 CONFIG_PATH = os.path.join("config.json")
@@ -54,6 +53,12 @@ class JobInterval(BaseModel):
     global_statistics: int = 60 * 60 * 24  # 24 hours
 
 
+class DomainRateLimitModel(BaseModel):
+    """域名限速配置"""
+    max_requests: int = 10  # 最大请求数
+    time_window: int = 60   # 时间窗口（秒）
+
+
 class ConfigModel(BaseModel):
     debug: bool = False
     mongodb: MongodbConfigModel = MongodbConfigModel()
@@ -78,6 +83,11 @@ class ConfigModel(BaseModel):
     max_file_size: int = 1024 * 1024 * 20  # 20MB
     log_to_file: bool = False
     log_path: str = "./logs"
+    # 域名限速配置
+    domain_rate_limits: Dict[str, DomainRateLimitModel] = {
+        "api.curseforge.com": DomainRateLimitModel(max_requests=100, time_window=60),
+        "api.modrinth.com": DomainRateLimitModel(max_requests=300, time_window=60),
+    }
 
 
 class Config:
