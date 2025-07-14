@@ -44,7 +44,7 @@ class ModelSubmitter:
             # 批量保存模型
             sync_mongo_engine.save_all(self.models)
             self.total_submitted += len(self.models)
-            log.debug(
+            log.trace(
                 f"Saved {len(self.models)} models (total: {self.total_submitted})"
             )
         except Exception as e:
@@ -56,12 +56,12 @@ class ModelSubmitter:
     def close(self) -> None:
         """保存所有剩余模型并清理"""
         self.flush()
-        log.debug(f"ModelSubmitter finished, total submitted: {self.total_submitted}")
+        log.trace(f"ModelSubmitter finished, total submitted: {self.total_submitted}")
 
     def clear(self) -> None:
         """清空待保存的模型"""
         self.models.clear()
-        log.debug("Cleared pending models.")
+        log.trace("Cleared pending models.")
 
     @property
     def pending_count(self) -> int:
