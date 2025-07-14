@@ -255,3 +255,14 @@ def sync_curseforge_full():
     )
 
     curseforge_pool.shutdown()
+
+    if config.telegram_bot:
+        notification = RefreshNotification(
+            platform=Platform.CURSEFORGE,
+            projects_detail_info=projects_detail_info,
+            failed_count=failed_count,
+        )
+        notification.send_to_telegram()
+        log.info("CurseForge refresh message sent to telegram.")
+    
+    return True
