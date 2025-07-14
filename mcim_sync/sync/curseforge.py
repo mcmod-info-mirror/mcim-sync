@@ -126,7 +126,7 @@ def sync_mod_all_files_at_once(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
     log.info(
-        f"Finished sync mod {modId}, total {page.totalCount} files, resultCount {page.resultCount}, removed {removed_count} files, existing files {original_files_count}"
+        f"Finished sync mod {modId}, total {page.totalCount} files, resultCount {page.resultCount}, removed {removed_count} files, existing files {original_files_count}, new added {page.resultCount - original_files_count}"
     )
 
     return page.totalCount
