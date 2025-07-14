@@ -56,7 +56,7 @@ class JobInterval(BaseModel):
 
 class DomainRateLimitModel(BaseModel):
     """域名限速配置 - 令牌桶算法"""
-    capacity: int = 10      # 令牌桶容量（最大令牌数）
+    capacity: int = 100      # 令牌桶容量（最大令牌数）
     refill_rate: float = 1.0  # 令牌生成速率（每秒生成的令牌数）
     initial_tokens: Optional[int] = None  # 初始令牌数，默认为满桶
 
