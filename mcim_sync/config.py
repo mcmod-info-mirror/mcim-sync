@@ -24,6 +24,7 @@ class RedisConfigModel(BaseModel):
 
 class JobConfigModel(BaseModel):
     curseforge_refresh: bool = True
+    curseforge_refresh_full: bool = True
     modrinth_refresh: bool = True
     sync_curseforge_by_queue: bool = True
     sync_curseforge_by_search: bool = True
