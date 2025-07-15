@@ -122,7 +122,8 @@ def sync_mod_all_files_at_once(modId: int, latestFiles: List[dict]) -> Optional[
     )
 
     removed_fingerprint_count = mongodb_engine.remove(
-        Fingerprint, query.not_in(Fingerprint.file.id, file_id_list)
+        # Fingerprint, query.not_in(Fingerprint.file.id, file_id_list)
+        Fingerprint, {"file.id": {"$nin": file_id_list}}
     )
 
     log.info(
