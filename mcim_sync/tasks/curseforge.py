@@ -10,6 +10,7 @@ from mcim_sync.utils.telegram import (
     CategoriesNotification,
 )
 from mcim_sync.config import Config
+from mcim_sync.utils.constans import ProjectDetail
 from mcim_sync.sync.curseforge import sync_mod, sync_categories
 from mcim_sync.checker.curseforge import (
     check_curseforge_modids_available,
@@ -50,7 +51,7 @@ def refresh_curseforge_with_modify_date() -> bool:
         MAX_WORKERS,
         "refresh_curseforge",
     )
-    projects_detail_info = []
+    projects_detail_info: List[ProjectDetail] = []
     for future in as_completed(curseforge_futures):
         result = future.result()
         if result:
@@ -58,15 +59,18 @@ def refresh_curseforge_with_modify_date() -> bool:
     else:
         curseforge_pool.shutdown()
 
-    failed_count = len(curseforge_expired_modids) - len(projects_detail_info)
+    success_modids = [project.id for project in projects_detail_info if project]
+    
+    failed_count = len(curseforge_expired_modids) - len(success_modids)
     failed_modids = [
         modid
         for modid in curseforge_expired_modids
-        if modid not in projects_detail_info
+        if modid not in success_modids
     ]
+
     log.info(
         f"CurseForge expired data sync finished, total: {len(curseforge_expired_modids)}, "
-        f"success: {len(projects_detail_info)}, failed: {failed_count}, "
+        f"success: {len(success_modids)}, failed: {failed_count}, "
         f"failed modids: {failed_modids if failed_modids else 'None'}"
     )
 
@@ -235,7 +239,7 @@ def sync_curseforge_full():
         f"All {len(curseforge_futures)} tasks submitted, waiting for completion..."
     )
 
-    projects_detail_info = []
+    projects_detail_info: List[ProjectDetail] = []
     for future in as_completed(curseforge_futures):
         result = future.result()
         if result:
@@ -243,18 +247,18 @@ def sync_curseforge_full():
     else:
         curseforge_pool.shutdown()
 
-    failed_count = len(curseforge_data) - len(projects_detail_info)
+    success_modids = [project.id for project in projects_detail_info if project]
+
+    failed_count = len(curseforge_data) - len(success_modids)
     failed_modids = [
-        modid for modid in curseforge_data if modid not in projects_detail_info
+        modid for modid in curseforge_data if modid not in success_modids
     ]
 
     log.info(
         f"CurseForge full sync finished, total: {len(curseforge_data)}, "
-        f"success: {len(projects_detail_info)}, failed: {failed_count}, "
+        f"success: {len(success_modids)}, failed: {failed_count}, "
         f"failed modids: {failed_modids if failed_modids else 'None'}"
     )
-
-    curseforge_pool.shutdown()
 
     if config.telegram_bot:
         notification = RefreshNotification(
