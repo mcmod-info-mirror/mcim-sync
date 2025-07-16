@@ -198,7 +198,7 @@ class Fingerprint(Model):
     model_config = {
         "collection": "curseforge_fingerprints",
         "indexes": [
-            {"fields": ["file.id"], "name": "file.id_1"},
+            {"fields": ["file.id", "file.modId"], "name": "file.id_1_file.modId_1"},
             {"fields": ["_id"], "name": "_id_"},
             
         ],
