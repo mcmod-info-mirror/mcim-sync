@@ -23,7 +23,7 @@ from mcim_sync.checker.modrinth import (
     check_newest_search_result,
 )
 from mcim_sync.cleaner.modrinth import remove_projects
-from mcim_sync.fetcher.modrinth import fetch_expired_and_removed_modrinth_data
+from mcim_sync.fetcher.modrinth import fetch_expired_and_removed_modrinth_data, fetch_all_modrinth_data
 from mcim_sync.queues.modrinth import clear_modrinth_all_queues
 from mcim_sync.tasks import create_tasks_pool
 
@@ -198,4 +198,51 @@ def refresh_modrinth_tags():
             game_versions_cached_count=game_version_count,
         ).send_to_telegram()
         log.info("All Message sent to telegram.")
+    return True
+
+def refresh_modrinth_full():
+    """
+    刷新 modrinth 所有数据
+    """
+    log.info("Start refreshing modrinth full data.")
+
+    modrinth_data = fetch_all_modrinth_data()
+    log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
+
+    modrinth_pool, modrinth_futures = create_tasks_pool(
+        sync_project, modrinth_data, MAX_WORKERS, "modrinth_refresh_full"
+    )
+
+    log.info(
+        f"All {len(modrinth_futures)} tasks submitted, waiting for completion..."
+    )
+
+    projects_detail_info = []
+    for future in as_completed(modrinth_futures):
+        result = future.result()
+        if result:
+            projects_detail_info.append(result)
+    else:
+        modrinth_pool.shutdown()
+
+    success_project_ids = [project.id for project in projects_detail_info if project]
+    
+    failed_count = len(modrinth_data) - len(success_project_ids)
+    failed_project_ids = [project.id for project in modrinth_data if project.id not in success_project_ids]
+
+    log.info(
+        f"Modrinth full sync finished, total: {len(modrinth_data)}, "
+        f"success: {len(success_project_ids)}, failed: {failed_count}, "
+        f"failed project ids: {failed_project_ids}"
+    )
+
+    if config.telegram_bot:
+        notice = RefreshNotification(
+            platform=Platform.MODRINTH,
+            projects_detail_info=projects_detail_info,
+            failed_count=failed_count,
+        )
+        notice.send_to_telegram()
+        log.info("Modrinth full refresh message sent to telegram.")
+    
     return True
