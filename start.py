@@ -10,6 +10,7 @@ from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
 from mcim_sync.tasks.modrinth import (
     sync_modrinth_queue,
+    refresh_modrinth_full,
     refresh_modrinth_with_modify_date,
     refresh_modrinth_tags,
     sync_modrinth_by_search,
@@ -56,6 +57,14 @@ def main():
             sync_curseforge_full,
             trigger=IntervalTrigger(seconds=config.interval.curseforge_refresh_full),
             name="curseforge_full_refresh",
+        )
+
+    if config.job_config.modrinth_refresh_full:
+        # 添加全量刷新任务，每 48 小时执行一次
+        modrinth_full_refresh_job = scheduler.add_job(
+            sync_modrinth_queue,
+            trigger=IntervalTrigger(seconds=config.interval.modrinth_refresh_full),
+            name="modrinth_full_refresh",
         )
 
     if config.job_config.sync_curseforge_by_queue:
