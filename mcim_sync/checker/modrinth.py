@@ -1,4 +1,4 @@
-from typing import Union, List, Set
+from typing import Union, List, Set, Tuple
 import datetime
 
 from mcim_sync.database.mongodb import raw_mongo_client
@@ -27,56 +27,98 @@ MAX_WORKERS: int = config.max_workers
 MODRINTH_DELAY: Union[float, int] = config.modrinth_delay
 
 
-def check_modrinth_data_updated_and_alive(projects: List[Project]) -> tuple[set[str], set[str]]:
-    project_info = {
-        project.id: {"sync_date": project.updated, "versions": project.versions}
+
+
+def check_modrinth_data_updated_and_alive(
+    projects: List[Project],
+) -> Tuple[Set[str], Set[str]]:
+    local_project_info = {
+        project.id: {
+            "updated": project.updated.replace(tzinfo=None),
+            "versions": project.versions,
+            "game_versions": project.game_versions,
+        }
         for project in projects
     }
-    expired_project_ids: Set[str] = set()
-    db_project_ids = [project.id for project in projects]
-    alive_project_ids = []
-    
-    info = fetch_mutil_projects_info(project_ids=db_project_ids)
-    
-    if info is not None:
-        with ModelSubmitter() as submitter:
-            for project in info:
-                project_id = project["id"]
 
-                # mark as alive
-                alive_project_ids.append(project_id)
+    all_project_ids = list(local_project_info.keys())
+    outdated_ids: Set[str] = set()
+    alive_ids: Set[str] = set()
 
-                submitter.add(Project(**project))
+    remote_projects = fetch_mutil_projects_info(project_ids=all_project_ids)
 
-                sync_date: datetime.datetime = project_info[project_id][
-                    "sync_date"
-                ].replace(tzinfo=None)
-                project_info[project_id]["source_date"] = project["updated"]
-                updated_date = datetime.datetime.fromisoformat(project["updated"]).replace(
-                    tzinfo=None
-                )
-                if int(sync_date.timestamp()) == int(updated_date.timestamp()):
-                    if project_info[project_id]["versions"] != project["versions"]:
-                        log.debug(
-                            f"Project {project_id} version count is not completely equal, some version were deleted, sync it!"
-                        )
-                        expired_project_ids.add(project_id)
-                    else:
-                        log.debug(f"Project {project_id} is not updated, pass!")
-                else:
-                    expired_project_ids.add(project_id)
+    if remote_projects is None:
+        return set(), set()
+
+    with ModelSubmitter() as submitter:
+        for remote in remote_projects:
+            project_id = remote["id"]
+            alive_ids.add(project_id)
+
+            local = local_project_info[project_id]
+
+            local_updated = local["updated"]
+            remote_updated = datetime.datetime.fromisoformat(remote["updated"]).replace(
+                tzinfo=None
+            )
+
+            local_versions = local["versions"]
+            remote_versions = remote["versions"]
+
+            local_game_versions = local["game_versions"]
+            remote_game_versions = remote["game_versions"]
+
+            if _is_project_updated(
+                local_updated, remote_updated
+            ):  # Check if project is updated
+                outdated_ids.add(project_id)
+                log.debug(f"[{project_id}] Updated: {local_updated} → {remote_updated}")
+            elif _has_versions_changed(
+                local_versions, remote_versions
+            ):  # Check if versions have changed
+                outdated_ids.add(project_id)
+                diff_versions = set(remote_versions) ^ set(local_versions)
+                if diff_versions:
                     log.debug(
-                        f"Project {project_id} is updated {sync_date.isoformat(timespec='seconds')} -> {updated_date.isoformat(timespec='seconds')}!"
+                        f"[{project_id}] Version {diff_versions} mismatch, needs sync."
                     )
+            elif _has_game_versions_changed(
+                local_game_versions, remote_game_versions
+            ):  # Check if game versions have changed
+                outdated_ids.add(project_id)
+                diff_game_versions = set(remote_game_versions) ^ set(
+                    local_game_versions
+                )
+                if diff_game_versions:
+                    log.debug(
+                        f"[{project_id}] Game versions {diff_game_versions} changed, needs sync."
+                    )
+            else:
+                log.debug(f"[{project_id}] No change, skipping.")
 
-        # check if project is not alive
-        not_alive_project_ids = set(db_project_ids) - set(alive_project_ids)
+            submitter.add(Project(**remote))
 
-        log.debug(
-            f"Expired project ids: {len(expired_project_ids)}, not alive project ids: {len(not_alive_project_ids)}"
-        )
+    dead_ids = set(all_project_ids) - alive_ids
 
-        return expired_project_ids, not_alive_project_ids
+    log.debug(f"Outdated projects: {len(outdated_ids)}, Dead projects: {len(dead_ids)}")
+
+    return outdated_ids, dead_ids
+
+
+def _is_project_updated(local: datetime.datetime, remote: datetime.datetime) -> bool:
+    return int(local.timestamp()) != int(remote.timestamp())
+
+
+def _has_versions_changed(
+    local_versions: List[str], remote_versions: List[str]
+) -> bool:
+    return local_versions != remote_versions
+
+
+def _has_game_versions_changed(
+    local_game_versions: List[str], remote_game_versions: List[str]
+) -> bool:
+    return local_game_versions != remote_game_versions
 
 
 # check modrinth_project_ids queue
@@ -128,7 +170,9 @@ def check_modrinth_hashes_available():
             chunk = hashes[i : i + MODRINTH_LIMIT_SIZE]
             info = fetch_multi_hashes_info(hashes=chunk, algorithm=algorithm)
             if info is not None:
-                available_project_ids.extend([hash["project_id"] for hash in info.values()])
+                available_project_ids.extend(
+                    [hash["project_id"] for hash in info.values()]
+                )
     return list(set(available_project_ids))
 
 
@@ -141,6 +185,7 @@ def check_new_project_ids(project_ids: List[str]) -> List[str]:
     )
     found_project_ids = [project["_id"] for project in find_result]
     return list(set(project_ids) - set(found_project_ids))
+
 
 def check_newest_search_result() -> List[str]:
     """
@@ -156,12 +201,12 @@ def check_newest_search_result() -> List[str]:
             break
 
         temp_project_ids = [project["project_id"] for project in res["hits"]]
-        
+
         # Check which projects are already in database
         existing_projects = set(
-            doc["_id"] for doc in raw_mongo_client["modrinth_projects"].find(
-                {"_id": {"$in": temp_project_ids}}, 
-                {"_id": 1}
+            doc["_id"]
+            for doc in raw_mongo_client["modrinth_projects"].find(
+                {"_id": {"$in": temp_project_ids}}, {"_id": 1}
             )
         )
 
@@ -174,7 +219,7 @@ def check_newest_search_result() -> List[str]:
         # If all projects are new, add them and continue searching
         new_project_ids.extend(temp_project_ids)
         log.debug(f"Found {len(temp_project_ids)} new project IDs at offset {offset}")
-        
+
         offset += limit
 
     return new_project_ids
