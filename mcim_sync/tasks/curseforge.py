@@ -232,7 +232,7 @@ def sync_curseforge_full():
     log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
 
     curseforge_pool, curseforge_futures = create_tasks_pool(
-        sync_mod, curseforge_data, MAX_WORKERS, "curseforge"
+        sync_mod, curseforge_data, MAX_WORKERS, "curseforge_refresh_full"
     )
 
     log.info(
