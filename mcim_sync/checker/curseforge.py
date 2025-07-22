@@ -46,7 +46,7 @@ def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
                     mod["dateModified"]
                 ).replace(tzinfo=None)
                 if int(sync_date.timestamp()) == int(dateModified_date.timestamp()):
-                    log.debug(f"Mod {modid} is not updated, pass!")
+                    log.trace(f"Mod {modid} is not updated, pass!")
                 else:
                     expired_modids.add(modid)
                     log.debug(
