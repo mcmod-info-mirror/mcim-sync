@@ -106,13 +106,13 @@ def sync_modrinth_queue() -> bool:
     new_project_ids = check_new_project_ids(project_ids=project_ids)
     log.info(f"New project ids: {new_project_ids}, count: {len(new_project_ids)}")
 
-    if project_ids:
+    if new_project_ids:
         pool, futures = create_tasks_pool(
             # sync_project, project_ids, MAX_WORKERS, "modrinth"
             sync_project,
             new_project_ids,
             MAX_WORKERS,
-            "sync_modrinth",  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
+            "sync_modrinth_by_queue",  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
         )
 
         projects_detail_info = []

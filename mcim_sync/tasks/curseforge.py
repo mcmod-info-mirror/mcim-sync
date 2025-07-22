@@ -111,10 +111,10 @@ def sync_curseforge_queue() -> bool:
     new_modids = check_new_modids(modids=modids)
     log.info(f"New modids: {new_modids}, count: {len(new_modids)}")
 
-    if modids:
+    if new_modids:
         # pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
         pool, futures = create_tasks_pool(
-            sync_mod, new_modids, MAX_WORKERS, "sync_curseforge"
+            sync_mod, new_modids, MAX_WORKERS, "sync_curseforge_queue"
         )  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
 
         projects_detail_info = []
