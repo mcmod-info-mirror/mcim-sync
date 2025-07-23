@@ -55,6 +55,18 @@ class JobInterval(BaseModel):
     modrinth_tags: int = 60 * 60 * 24  # 24 hours
     global_statistics: int = 60 * 60 * 24  # 24 hours
 
+class CronTrigger(BaseModel):
+    curseforge_refresh: str = "0 */2 * * *"  # Every 2 hours
+    modrinth_refresh: str = "0 */2 * * *"  # Every 2 hours
+    curseforge_refresh_full: str = "0 2 * * *"  # Every day at 02:00
+    modrinth_refresh_full: str = "0 4 * * *" # Every day at 04:00
+    sync_curseforge_by_queue: str = "*/20 * * * *"  # Every 20 minutes
+    sync_modrinth_by_queue: str = "10,30,50 * * * *"  # Every 10, 30, 50 minutes
+    sync_modrinth_by_search: str = "30 */2 * * *"  # Every 2 hours at 30 minutes past the hour
+    sync_curseforge_by_search: str = "0 */2 * * *"  # Every 2 hours at 30 minutes past odd hours
+    curseforge_categories: str = "0 0 * * *"  # Daily at 00:00
+    modrinth_tags: str = "0 0 * * *"  # Daily at 00:00
+    global_statistics: str = "0 0 * * *"  # Daily at 00:00
 
 class DomainRateLimitModel(BaseModel):
     """域名限速配置 - 令牌桶算法"""
@@ -72,6 +84,8 @@ class ConfigModel(BaseModel):
 
     job_config: JobConfigModel = JobConfigModel()
     interval: JobInterval = JobInterval()
+    use_cron: bool = True  # 是否使用 CronTrigger，如果为 False 则使用 IntervalTrigger
+    cron_trigger: CronTrigger = CronTrigger()
     
     max_workers: int = 8
     curseforge_chunk_size: int = 1000

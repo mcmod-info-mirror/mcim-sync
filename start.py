@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
-import datetime
+from datetime import datetime
 import time
 
 from mcim_sync.database.mongodb import init_mongodb_syncengine
@@ -37,116 +37,103 @@ def main():
     # 创建调度器
     scheduler = BackgroundScheduler()
     if config.job_config.curseforge_refresh:
-        # 添加定时刷新任务，每小时执行一次
+        curseforge_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.curseforge_refresh) if config.use_cron else IntervalTrigger(seconds=config.interval.curseforge_refresh)
         curseforge_refresh_job = scheduler.add_job(
             refresh_curseforge_with_modify_date,
-            trigger=IntervalTrigger(seconds=config.interval.curseforge_refresh),
+            trigger=curseforge_refresh_trigger,
             name="curseforge_refresh",
         )
+        log.info(f"Next run time of curseforge_refresh: {curseforge_refresh_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.modrinth_refresh:
+        modrinth_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.modrinth_refresh) if config.use_cron else IntervalTrigger(seconds=config.interval.modrinth_refresh)
         modrinth_refresh_job = scheduler.add_job(
             refresh_modrinth_with_modify_date,
-            trigger=IntervalTrigger(seconds=config.interval.modrinth_refresh),
+            trigger=modrinth_refresh_trigger,
             name="modrinth_refresh",
         )
+        log.info(f"Next run time of modrinth_refresh: {modrinth_refresh_trigger.get_next_fire_time(None, datetime.now())}")
     
     if config.job_config.curseforge_refresh_full:
-        # 添加全量刷新任务，每 48 小时执行一次
+        curseforge_full_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.curseforge_refresh_full) if config.use_cron else IntervalTrigger(seconds=config.interval.curseforge_refresh_full)
         curseforge_full_refresh_job = scheduler.add_job(
             sync_curseforge_full,
-            trigger=IntervalTrigger(seconds=config.interval.curseforge_refresh_full),
+            trigger=curseforge_full_refresh_trigger,
             name="curseforge_full_refresh",
         )
+        log.info(f"Next run time of curseforge_full_refresh: {curseforge_full_refresh_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.modrinth_refresh_full:
-        # 添加全量刷新任务，每 48 小时执行一次
+        modrinth_full_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.modrinth_refresh_full) if config.use_cron else IntervalTrigger(seconds=config.interval.modrinth_refresh_full)
         modrinth_full_refresh_job = scheduler.add_job(
-            sync_modrinth_queue,
-            trigger=IntervalTrigger(seconds=config.interval.modrinth_refresh_full),
+            refresh_modrinth_full,
+            trigger=modrinth_full_refresh_trigger,
             name="modrinth_full_refresh",
         )
+        log.info(f"Next run time of modrinth_full_refresh: {modrinth_full_refresh_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.sync_curseforge_by_queue:
-        # 添加定时同步任务，用于检查 api 未找到的请求数据
+        curseforge_sync_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_curseforge_by_queue) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_curseforge_by_queue)
         curseforge_sync_job = scheduler.add_job(
             sync_curseforge_queue,
-            trigger=IntervalTrigger(seconds=config.interval.sync_curseforge_by_queue),
+            trigger=curseforge_sync_trigger,
             name="sync_curseforge_queue",
         )
+        log.info(f"Next run time of sync_curseforge_queue: {curseforge_sync_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.sync_modrinth_by_queue:
-        # 由 sync_modrinth_by_search 平替
+        modrinth_sync_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_modrinth_by_queue) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_modrinth_by_queue)
         modrinth_sync_job = scheduler.add_job(
             sync_modrinth_queue,
-            trigger=IntervalTrigger(seconds=config.interval.sync_modrinth_by_queue),
+            trigger=modrinth_sync_trigger,
             name="sync_modrinth_queue",
         )
+        log.info(f"Next run time of sync_modrinth_by_queue: {modrinth_sync_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.sync_modrinth_by_search:
+        sync_modrinth_by_search_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_modrinth_by_search) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_modrinth_by_search)
         sync_modrinth_by_search_job = scheduler.add_job(
             sync_modrinth_by_search,
-            trigger=IntervalTrigger(seconds=config.interval.sync_modrinth_by_search),
+            trigger=sync_modrinth_by_search_trigger,
             name="sync_modrinth_by_search",
         )
+        log.info(f"Next run time of sync_modrinth_by_search: {sync_modrinth_by_search_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.sync_curseforge_by_search:
+        sync_curseforge_by_search_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_curseforge_by_search) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_curseforge_by_search)
         sync_curseforge_by_search_job = scheduler.add_job(
             sync_curseforge_by_search,
-            trigger=IntervalTrigger(seconds=config.interval.sync_curseforge_by_search),
+            trigger=sync_curseforge_by_search_trigger,
             name="sync_curseforge_by_search",
         )
+        log.info(f"Next run time of sync_curseforge_by_search: {sync_curseforge_by_search_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.curseforge_categories:
+        curseforge_categories_trigger = CronTrigger.from_crontab(config.cron_trigger.curseforge_categories) if config.use_cron else IntervalTrigger(seconds=config.interval.curseforge_categories)
         curseforge_categories_refresh_job = scheduler.add_job(
             refresh_curseforge_categories,
-            # trigger=IntervalTrigger(seconds=config.interval.curseforge_categories),
-            # 使用 CronTrigger 每天执行一次，指定 0 点
-            trigger=CronTrigger(
-                hour="0",
-                minute="0",
-                second="0",
-                day_of_week="*",
-                month="*",
-                year="*",
-            ),
+            trigger=curseforge_categories_trigger,
             name="curseforge_categories_refresh",
-            # next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         )
+        log.info(f"Next run time of curseforge_categories_refresh: {curseforge_categories_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.job_config.modrinth_tags:
+        modrinth_tags_trigger = CronTrigger.from_crontab(config.cron_trigger.modrinth_tags) if config.use_cron else IntervalTrigger(seconds=config.interval.modrinth_tags)
         modrinth_refresh_tags_job = scheduler.add_job(
             refresh_modrinth_tags,
-            # trigger=IntervalTrigger(seconds=config.interval.modrinth_tags),
-            # 使用 CronTrigger 每天执行一次
-            trigger=CronTrigger(
-                hour="0",
-                minute="0",
-                second="0",
-                day_of_week="*",
-                month="*",
-                year="*",
-            ),
+            trigger=modrinth_tags_trigger,
             name="modrinth_refresh_tags",
-            # next_run_time=datetime.datetime.now(),  # 立即执行一次任务
         )
+        log.info(f"Next run time of modrinth_refresh_tags: {modrinth_tags_trigger.get_next_fire_time(None, datetime.now())}")
 
     if config.telegram_bot and config.job_config.global_statistics:
-        # 单独发布统计信息
+        statistics_trigger = CronTrigger.from_crontab(config.cron_trigger.global_statistics) if config.use_cron else IntervalTrigger(seconds=config.interval.global_statistics)
         statistics_job = scheduler.add_job(
             send_statistics_to_telegram,
-            # trigger=IntervalTrigger(seconds=config.interval.global_statistics),
-            # 使用 CronTrigger 每天执行一次
-            trigger=CronTrigger(
-                hour="0",
-                minute="0",
-                second="0",
-                day_of_week="*",
-                month="*",
-                year="*",
-            ),
+            trigger=statistics_trigger,
             name="statistics",
         )
+        log.info(f"Next run time of global_statistics: {statistics_trigger.get_next_fire_time(None, datetime.now())}")
 
     # 启动调度器
     scheduler.start()
