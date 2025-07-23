@@ -2,7 +2,7 @@ from concurrent.futures import as_completed
 from typing import List, Optional
 
 from mcim_sync.utils.loger import log
-from mcim_sync.utils.constans import Platform
+from mcim_sync.utils.constants import Platform
 from mcim_sync.utils.telegram import (
     QueueSyncNotification,
     SearchSyncNotification,
@@ -10,7 +10,7 @@ from mcim_sync.utils.telegram import (
     CategoriesNotification,
 )
 from mcim_sync.config import Config
-from mcim_sync.utils.constans import ProjectDetail
+from mcim_sync.utils.constants import ProjectDetail
 from mcim_sync.sync.curseforge import sync_mod, sync_categories
 from mcim_sync.checker.curseforge import (
     check_curseforge_modids_available,

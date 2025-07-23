@@ -20,7 +20,7 @@ from mcim_sync.apis.curseforge import (
     get_search_result,
 )
 
-from mcim_sync.utils.constans import ProjectDetail
+from mcim_sync.utils.constants import ProjectDetail
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
 

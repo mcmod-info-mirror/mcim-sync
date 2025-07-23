@@ -1,7 +1,7 @@
 from concurrent.futures import as_completed
 
 from mcim_sync.utils.loger import log
-from mcim_sync.utils.constans import Platform
+from mcim_sync.utils.constants import Platform
 from mcim_sync.utils.telegram import (
     QueueSyncNotification,
     SearchSyncNotification,
