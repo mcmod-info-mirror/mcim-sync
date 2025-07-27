@@ -188,21 +188,21 @@ class Pagination(BaseModel):
     totalCount: int
 
 
-class Fingerprint(Model):
-    id: int = Field(primary_field=True, index=True)
-    file: FileInfo
-    latestFiles: List[FileInfo]
+# class Fingerprint(Model):
+#     id: int = Field(primary_field=True, index=True)
+#     file: FileInfo
+#     latestFiles: List[FileInfo]
 
-    sync_at: datetime = Field(default_factory=datetime.utcnow)
+#     sync_at: datetime = Field(default_factory=datetime.utcnow)
 
-    model_config = {
-        "collection": "curseforge_fingerprints",
-        "indexes": [
-            {"fields": ["file.id", "file.modId"], "name": "file.id_1_file.modId_1"},
-            {"fields": ["_id"], "name": "_id_"},
+#     model_config = {
+#         "collection": "curseforge_fingerprints",
+#         "indexes": [
+#             {"fields": ["file.id", "file.modId"], "name": "file.id_1_file.modId_1"},
+#             {"fields": ["_id"], "name": "_id_"},
             
-        ],
-    }
+#         ],
+#     }
 
 
 class Category(Model):

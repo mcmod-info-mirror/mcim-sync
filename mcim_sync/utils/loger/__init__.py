@@ -56,7 +56,7 @@ class Logger:
             backtrace=False,
             diagnose=False,
             filter=filter,
-            serialize=True,
+            serialize=False,
         )
 
     def get_logger(self):

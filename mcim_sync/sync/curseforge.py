@@ -7,7 +7,7 @@ from mcim_sync.models.database.curseforge import (
     File,
     Mod,
     Pagination,
-    Fingerprint,
+    # Fingerprint,
     Category,
 )
 from mcim_sync.apis.curseforge import (
@@ -38,21 +38,22 @@ HEADERS = {
 }
 
 
-def append_model_from_files_res(res, latestFiles: List[dict]):
+def append_model_from_files_res(res):
     with ModelSubmitter() as submitter:
         for file in res["data"]:
             file_model = File(**file)
-            submitter.add(
-                Fingerprint(
-                    id=file["fileFingerprint"],
-                    file=file,
-                    latestFiles=latestFiles,  # type: ignore
-                )
-            )
+            # 不再使用 curseforge_fingerprints 表
+            # submitter.add(
+            #     Fingerprint(
+            #         id=file["fileFingerprint"],
+            #         file=file,
+            #         latestFiles=latestFiles,  # type: ignore
+            #     )
+            # )
             submitter.add(file_model)
 
 
-def sync_mod_all_files(modId: int, latestFiles: List[dict]) -> int:
+def sync_mod_all_files(modId: int) -> int:
     params = {"index": 0, "pageSize": 50}
     file_id_list = []
 
@@ -60,7 +61,7 @@ def sync_mod_all_files(modId: int, latestFiles: List[dict]) -> int:
 
     while True:
         res = get_mod_files(modId, params["index"], params["pageSize"])
-        append_model_from_files_res(res, latestFiles=latestFiles)
+        append_model_from_files_res(res)
         file_id_list.extend([file["id"] for file in res["data"]])
 
         page = Pagination(**res["pagination"])
@@ -77,18 +78,22 @@ def sync_mod_all_files(modId: int, latestFiles: List[dict]) -> int:
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
 
-    removed_fingerprint_count = mongodb_engine.remove(
-        Fingerprint, query.not_in(Fingerprint.file.id, file_id_list)
-    )
+    # removed_fingerprint_count = mongodb_engine.remove(
+    #     Fingerprint, query.not_in(Fingerprint.file.id, file_id_list)
+    # )
+
+    # log.info(
+    #     f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_file_count} files and {removed_fingerprint_count} fingerprints, original files {original_files_count}"
+    # )
 
     log.info(
-        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_file_count} files and {removed_fingerprint_count} fingerprints, original files {original_files_count}"
+        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_file_count} files, original files {original_files_count}"
     )
 
     return page.totalCount
 
 
-def sync_mod_all_files_at_once(modId: int, latestFiles: List[dict]) -> Optional[int]:
+def sync_mod_all_files_at_once(modId: int) -> Optional[int]:
     max_retries = 3
     page_size = 10000
     for i in range(max_retries):
@@ -115,18 +120,22 @@ def sync_mod_all_files_at_once(modId: int, latestFiles: List[dict]) -> Optional[
 
     original_files_count = mongodb_engine.count(File, File.modId == modId)
 
-    append_model_from_files_res(res, latestFiles=latestFiles)
+    append_model_from_files_res(res)
 
     removed_file_count = mongodb_engine.remove(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
 
-    removed_fingerprint_count = mongodb_engine.remove(
-        Fingerprint, {"file.id": {"$nin": file_id_list}, "file.modId": modId} # 务必注意筛选 modId
-    )
+    # removed_fingerprint_count = mongodb_engine.remove(
+    #     Fingerprint, {"file.id": {"$nin": file_id_list}, "file.modId": modId} # 务必注意筛选 modId
+    # )
+
+    # log.info(
+    #     f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_file_count} files and {removed_fingerprint_count} fingerprints, original files {original_files_count}"
+    # )
 
     log.info(
-        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_file_count} files and {removed_fingerprint_count} fingerprints, original files {original_files_count}"
+        f"Finished sync mod {modId}, total {page.totalCount} files, removed {removed_file_count} files, original files {original_files_count}"
     )
 
     return page.totalCount
@@ -141,12 +150,12 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
             if mod_model.gameId == 432:
                 # version_count = sync_mod_all_files(
                 #     modId,
-                #     latestFiles=res["latestFiles"],
+                #     # latestFiles=res["latestFiles"],
                 # )
 
                 version_count = sync_mod_all_files_at_once(
                     modId,
-                    latestFiles=res["latestFiles"],
+                    # latestFiles=res["latestFiles"],
                 )
 
                 if version_count is None:
