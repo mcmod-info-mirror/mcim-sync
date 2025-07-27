@@ -94,7 +94,7 @@ def check_modrinth_data_updated_and_alive(
                         f"[{project_id}] Game versions {diff_game_versions} changed, needs sync."
                     )
             else:
-                log.debug(f"[{project_id}] No change, skipping.")
+                log.trace(f"[{project_id}] No change, skipping.")
 
             submitter.add(Project(**remote))
 
