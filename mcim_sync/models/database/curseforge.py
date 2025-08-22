@@ -9,9 +9,9 @@ class CategoryInfo(BaseModel):
     gameId: int
     name: str
     slug: Optional[str] = None  # stupid curseforge dev | For id 4591 and 236, slug is None
-    url: str
-    iconUrl: str
-    dateModified: datetime
+    url: Optional[str] = None
+    iconUrl: Optional[str] = None
+    dateModified: Optional[datetime] = None
     isClass: Optional[bool] = None
     classId: Optional[int] = None
     parentCategoryId: Optional[int] = None
