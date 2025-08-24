@@ -58,8 +58,6 @@ class Project(Model):
     loaders: Optional[List[str]] = None
     gallery: Optional[List[GalleryItem]] = None
 
-    translated_description: Optional[str] = None
-
     sync_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
@@ -157,4 +155,17 @@ class GameVersion(Model):
     model_config = {
         "collection": "modrinth_game_versions",
         "title": "Modrinth Game Version",
+    }
+
+
+class Translation(Model):
+    id: str = Field(primary_field=True, index=True)
+    translated: Optional[str] = None
+    original: Optional[str] = None
+
+    need_to_update: bool = Field(default=False)
+    translated_at: Optional[datetime] = None
+
+    model_config = {
+        "collection": "modrinth_translated",
     }

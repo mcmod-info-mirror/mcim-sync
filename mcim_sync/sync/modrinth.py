@@ -13,6 +13,7 @@ from mcim_sync.models.database.modrinth import (
     Category,
     Loader,
     GameVersion,
+    Translation,
 )
 from mcim_sync.apis.modrinth import (
     get_project,
@@ -28,7 +29,7 @@ from mcim_sync.apis.modrinth import (
 from mcim_sync.utils.constants import ProjectDetail
 from mcim_sync.exceptions import ResponseCodeException
 from mcim_sync.config import Config
-from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
+from mcim_sync.database.mongodb import sync_mongo_engine
 from mcim_sync.utils.model_submitter import ModelSubmitter
 from mcim_sync.utils.loger import log
 
@@ -54,13 +55,13 @@ def sync_project_all_version(project_id: str) -> int:
                 submitter.add(file_model)
             submitter.add(Version(**version))
 
-        removed_version_count = mongodb_engine.remove(
+        removed_version_count = sync_mongo_engine.remove(
             Version,
             query.not_in(Version.id, latest_version_id_list),
             Version.project_id == project_id,
         )
 
-        removed_file_count = mongodb_engine.remove(
+        removed_file_count = sync_mongo_engine.remove(
             File,
             query.not_in(File.version_id, latest_version_id_list),
             File.project_id == project_id,
@@ -84,6 +85,29 @@ def sync_project(project_id: str) -> Optional[ProjectDetail]:
             )
             if total_count == 0:
                 return None
+
+            # 为 mcim_translate 检查是否有翻译过或者 description 是否有修改
+            translated_mod = sync_mongo_engine.find_one(
+                Translation, query.eq(Translation.id, project_id)
+            )
+
+            if not translated_mod:
+                translated_mod = Translation(
+                    id=project_id,
+                    translated=None,
+                    original=project_model.description,
+                    need_to_update=True
+                )
+                log.debug(f"Project {project_id} description not found, adding new translation")
+                submitter.add(translated_mod)
+            elif translated_mod.original != project_model.description:
+                translated_mod.original = project_model.description
+                translated_mod.need_to_update = True
+                log.debug(f"Project {project_id} description changed, marking translation for update")
+                submitter.add(translated_mod)
+            else:
+                log.trace(f"Project {project_id} description not changed, no need to update translation")
+
             # 最后再添加，以防未成功刷新版本列表而更新 Project 信息
             submitter.add(project_model)
             return ProjectDetail(
@@ -99,7 +123,7 @@ def sync_project(project_id: str) -> Optional[ProjectDetail]:
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_categories() -> List[dict]:
-    mongodb_engine.remove(Category)
+    sync_mongo_engine.remove(Category)
     with ModelSubmitter() as submitter:
         categories = get_categories()
         for category in categories:
@@ -109,7 +133,7 @@ def sync_categories() -> List[dict]:
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_loaders() -> List[dict]:
-    mongodb_engine.remove(Loader)
+    sync_mongo_engine.remove(Loader)
     with ModelSubmitter() as submitter:
         loaders = get_loaders()
         for loader in loaders:
@@ -119,7 +143,7 @@ def sync_loaders() -> List[dict]:
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_game_versions() -> List[dict]:
-    mongodb_engine.remove(GameVersion)
+    sync_mongo_engine.remove(GameVersion)
     with ModelSubmitter() as submitter:
         game_versions = get_game_versions()
         for game_version in game_versions:

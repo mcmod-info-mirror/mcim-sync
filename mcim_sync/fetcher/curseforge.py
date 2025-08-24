@@ -16,7 +16,6 @@ CURSEFORGE_DELAY: Union[float, int] = config.curseforge_delay
 MODRINTH_DELAY: Union[float, int] = config.modrinth_delay
 
 
-
 def fetch_all_curseforge_data() -> List[int]:
     skip = 0
     result = []

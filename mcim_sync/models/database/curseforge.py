@@ -8,7 +8,9 @@ class CategoryInfo(BaseModel):
     id: int
     gameId: int
     name: str
-    slug: Optional[str] = None  # stupid curseforge dev | For id 4591 and 236, slug is None
+    slug: Optional[str] = (
+        None  # stupid curseforge dev | For id 4591 and 236, slug is None
+    )
     url: Optional[str] = None
     iconUrl: Optional[str] = None
     dateModified: Optional[datetime] = None
@@ -16,6 +18,7 @@ class CategoryInfo(BaseModel):
     classId: Optional[int] = None
     parentCategoryId: Optional[int] = None
     displayIndex: Optional[int] = None
+
 
 class FileDependencies(BaseModel):
     modId: int
@@ -172,8 +175,6 @@ class Mod(Model):
     thumbsUpCount: Optional[int] = None
     rating: Optional[int] = None
 
-    translated_summary: Optional[str] = None
-
     sync_at: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {
@@ -200,7 +201,7 @@ class Pagination(BaseModel):
 #         "indexes": [
 #             {"fields": ["file.id", "file.modId"], "name": "file.id_1_file.modId_1"},
 #             {"fields": ["_id"], "name": "_id_"},
-            
+
 #         ],
 #     }
 
@@ -209,7 +210,9 @@ class Category(Model):
     id: int = Field(primary_field=True, index=True)
     gameId: int
     name: str
-    slug: Optional[str] = None # stupid curseforge dev | For id 4591 and 236, slug is None
+    slug: Optional[str] = (
+        None  # stupid curseforge dev | For id 4591 and 236, slug is None
+    )
     url: str
     iconUrl: str
     dateModified: datetime
@@ -223,4 +226,17 @@ class Category(Model):
     model_config = {
         "collection": "curseforge_categories",
         "title": "CurseForge Category",
+    }
+
+
+class Translation(Model):
+    id: int = Field(primary_field=True, index=True)
+    translated: Optional[str] = None
+    original: Optional[str] = None
+
+    need_to_update: bool = Field(default=False)
+    translated_at: Optional[datetime] = None
+
+    model_config = {
+        "collection": "curseforge_translated",
     }

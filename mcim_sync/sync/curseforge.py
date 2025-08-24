@@ -9,6 +9,7 @@ from mcim_sync.models.database.curseforge import (
     Pagination,
     # Fingerprint,
     Category,
+    Translation,
 )
 from mcim_sync.apis.curseforge import (
     get_mod,
@@ -25,7 +26,7 @@ from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
 
 # from mcim_sync.utils import find_hash_in_curseforge_hashes
-from mcim_sync.database.mongodb import sync_mongo_engine as mongodb_engine
+from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
 from mcim_sync.config import Config
 from mcim_sync.exceptions import ResponseCodeException
 
@@ -57,7 +58,7 @@ def sync_mod_all_files(modId: int) -> int:
     params = {"index": 0, "pageSize": 50}
     file_id_list = []
 
-    original_files_count = mongodb_engine.count(File, File.modId == modId)
+    original_files_count = sync_mongo_engine.count(File, File.modId == modId)
 
     while True:
         res = get_mod_files(modId, params["index"], params["pageSize"])
@@ -74,11 +75,11 @@ def sync_mod_all_files(modId: int) -> int:
 
         params["index"] = page.index + page.pageSize
 
-    removed_file_count = mongodb_engine.remove(
+    removed_file_count = sync_mongo_engine.remove(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
 
-    # removed_fingerprint_count = mongodb_engine.remove(
+    # removed_fingerprint_count = sync_mongo_engine.remove(
     #     Fingerprint, query.not_in(Fingerprint.file.id, file_id_list)
     # )
 
@@ -118,15 +119,15 @@ def sync_mod_all_files_at_once(modId: int) -> Optional[int]:
         )
         return None
 
-    original_files_count = mongodb_engine.count(File, File.modId == modId)
+    original_files_count = sync_mongo_engine.count(File, File.modId == modId)
 
     append_model_from_files_res(res)
 
-    removed_file_count = mongodb_engine.remove(
+    removed_file_count = sync_mongo_engine.remove(
         File, File.modId == modId, query.not_in(File.id, file_id_list)
     )
 
-    # removed_fingerprint_count = mongodb_engine.remove(
+    # removed_fingerprint_count = sync_mongo_engine.remove(
     #     Fingerprint, {"file.id": {"$nin": file_id_list}, "file.modId": modId} # 务必注意筛选 modId
     # )
 
@@ -160,6 +161,28 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
 
                 if version_count is None:
                     return None
+
+                # 为 mcim_translate 检查是否有翻译过或者 summary 是否有修改
+                translated_mod = sync_mongo_engine.find_one(
+                    Translation, query.eq(Translation.id, modId)
+                )
+
+                if not translated_mod:
+                    translated_mod = Translation(
+                        id=modId,
+                        translated=None,
+                        original=mod_model.summary,
+                        need_to_update=True
+                    )
+                    log.debug(f"Mod {modId} summary not found, adding new translation")
+                    submitter.add(translated_mod)
+                elif translated_mod.original != mod_model.summary:
+                    translated_mod.original = mod_model.summary
+                    translated_mod.need_to_update = True
+                    log.debug(f"Mod {modId} summary changed, marking translation for update")
+                    submitter.add(translated_mod)
+                else:
+                    log.trace(f"Mod {modId} summary not changed, no need to update translation")
 
                 # 最后再添加，以防未成功刷新版本列表而更新 Mod 信息
                 submitter.add(mod_model)
