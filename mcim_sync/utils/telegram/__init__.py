@@ -113,6 +113,7 @@ class StatisticsNotification(Notification):
             "MCIM API 已缓存：\n"
             f"Curseforge 模组 {mcim_stats['curseforge']['mod']} 个，文件 {mcim_stats['curseforge']['file']} 个\n"
             f"Modrinth 项目 {mcim_stats['modrinth']['project']} 个，版本 {mcim_stats['modrinth']['version']} 个，文件 {mcim_stats['modrinth']['file']} 个\n"
+            f"Curseforge 已翻译 {mcim_stats['translate']['curseforge']} 个，Modrinth 已翻译 {mcim_stats['translate']['modrinth']} 个"
         )
 
         message_id = send_message_sync(mcim_message, chat_id=config.chat_id)
