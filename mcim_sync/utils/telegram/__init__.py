@@ -11,6 +11,8 @@ from mcim_sync.utils.constants import Platform, ProjectDetail
 
 config = Config.load()
 
+TELEGRAM_MAX_CHARS = 4096  # Telegram 文本消息最大长度
+
 
 def escape_markdown(text: str) -> str:
     return _escape_markdown(text=text, version=2)
@@ -81,28 +83,23 @@ class Notification(ABC):
     def send_to_telegram(self):
         raise NotImplementedError()
 
-
-def make_blockquote(lines: List[str], prefix: str = "> ") -> str:
-    return (
-        "**" + "\n".join([f"{prefix}{escape_markdown(line)}" for line in lines]) + "||"
-    )
-
-
-def make_project_detail_blockquote(projects_detail_info: List[ProjectDetail]) -> str:
-    """
-    制作模组信息的折叠代码块
-    """
-    message = escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
-    mod_messages = []
-    message_length = len(message)
-    for project in projects_detail_info:
-        if message_length >= 3600:  # 不算代码块标识符的长度
+def make_spoiler_block_with_budget(
+    lines: List[str], budget: int, prefix: str = "> "
+) -> str:
+    budget -= 4  # 扣除 '**' '||' 的长度
+    assembled_lines: List[str] = []
+    used = 0
+    for line in lines:
+        # 逐行转义并加入前缀
+        escaped_line = f"{prefix}{escape_markdown(line, version=2)}"
+        # 如果不是第一行，需要额外的换行符
+        increment = len(escaped_line) + (1 if assembled_lines else 0)
+        if used + increment > budget:
             break
-        text = f"{project.name}({project.id}): {project.version_count}"
-        mod_messages.append(text)
-        message_length += len(text)
-    message += make_blockquote(mod_messages)
-    return message
+        assembled_lines.append(escaped_line)
+        used += increment
+    newline = "\n"
+    return f"**{newline.join(assembled_lines)}||"
 
 
 class StatisticsNotification(Notification):
@@ -142,15 +139,20 @@ class RefreshNotification(Notification):
             if self.failed_count > 0
             else f"{self.platform.value} 缓存刷新完成，共刷新 {len(self.projects_detail_info)} 个模组\n"
         )
-        if self.projects_detail_info:
-            sync_message += make_project_detail_blockquote(self.projects_detail_info)
-        sync_message += escape_markdown(
+        tag_message = escape_markdown(
             text=(
                 "\n#Curseforge_Refresh"
                 if self.platform == Platform.CURSEFORGE
                 else "\n#Modrinth_Refresh"
             )
         )
+        if self.projects_detail_info:
+            sync_message += escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
+            sync_message += make_spoiler_block_with_budget(
+                self.projects_detail_info,
+                budget=TELEGRAM_MAX_CHARS - len(sync_message) - len(tag_message),
+            )
+        sync_message += tag_message
         message_id = send_message_sync(
             sync_message, chat_id=config.chat_id, parse_mode="MarkdownV2"
         )
@@ -179,12 +181,20 @@ class QueueSyncNotification(Notification):
                 f"有 {len(self.projects_detail_info)} 个模组是新捕获到的"
             )
         )
-
-        if self.projects_detail_info:
-            message += make_project_detail_blockquote(self.projects_detail_info)
-        message += escape_markdown(
-            text=f"\n#{self.platform.value.capitalize()}_Sync_by_Queue"
+        tag_message = escape_markdown(
+            text=(
+                "\n#Curseforge_Queue"
+                if self.platform == Platform.CURSEFORGE
+                else "\n#Modrinth_Queue"
+            )
         )
+        if self.projects_detail_info:
+            message += escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
+            message += make_spoiler_block_with_budget(
+                self.projects_detail_info,
+                budget=TELEGRAM_MAX_CHARS - len(message) - len(tag_message),
+            )
+        message += tag_message
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
         )
@@ -212,12 +222,17 @@ class SearchSyncNotification(Notification):
                 f"本次从 {self.platform.value} 搜索接口中总共找到 {self.total_catached_count} 个新项目数据\n"
             )
         )
-
-        if self.projects_detail_info:
-            message += make_project_detail_blockquote(self.projects_detail_info)
-        message += escape_markdown(
-            text=f"\n#{self.platform.value.capitalize()}_Sync_by_Search"
+        tag_message = escape_markdown(
+            text=(
+                "\n#Curseforge_Search"
+                if self.platform == Platform.CURSEFORGE
+                else "\n#Modrinth_Search"
+            )
         )
+        if self.projects_detail_info:
+            message += escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
+            message += make_spoiler_block_with_budget(self.projects_detail_info, budget=TELEGRAM_MAX_CHARS - len(message) - len(tag_message))
+        message += tag_message
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
         )
