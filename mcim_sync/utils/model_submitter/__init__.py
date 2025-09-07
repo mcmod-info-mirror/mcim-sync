@@ -6,15 +6,20 @@ from mcim_sync.database.mongodb import sync_mongo_engine
 from mcim_sync.utils.loger import log
 
 
+DEFAULT_SUBMITTER_BATCH_SIZE = 20
+
+
 class Platform(Enum):
     CURSEFORGE = "curseforge"
     MODRINTH = "modrinth"
+
 
 class ModelSubmitter:
     """
     用于批量 save model
     """
-    def __init__(self, batch_size: int = 100):
+
+    def __init__(self, batch_size: int = DEFAULT_SUBMITTER_BATCH_SIZE):
         self.models: List[Model] = []
         self.batch_size = batch_size
         self.total_submitted = 0
