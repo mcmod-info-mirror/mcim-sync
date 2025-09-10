@@ -87,7 +87,8 @@ def fetch_expired_and_removed_modrinth_data() -> tuple[List[str], List[str]]:
         expired_project_ids.update(check_expired_result)
         removed_project_ids.update(not_alive_result)
         log.debug(f"Matched {len(check_expired_result)} expired projects, {len(not_alive_result)} removed projects")
-        log.debug(f"Removed project ids: {not_alive_result}")
+        if len(not_alive_result) != 0:
+            log.debug(f"Removed project ids: {not_alive_result}")
         time.sleep(MODRINTH_DELAY)
         log.debug(f"Delay {MODRINTH_DELAY} seconds")
     return list(expired_project_ids), list(removed_project_ids)
