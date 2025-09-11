@@ -38,7 +38,7 @@ def main():
     scheduler = BackgroundScheduler()
     if config.job_config.curseforge_refresh:
         curseforge_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.curseforge_refresh) if config.use_cron else IntervalTrigger(seconds=config.interval.curseforge_refresh)
-        curseforge_refresh_job = scheduler.add_job(
+        scheduler.add_job(
             refresh_curseforge_with_modify_date,
             trigger=curseforge_refresh_trigger,
             name="curseforge_refresh",
@@ -47,7 +47,7 @@ def main():
 
     if config.job_config.modrinth_refresh:
         modrinth_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.modrinth_refresh) if config.use_cron else IntervalTrigger(seconds=config.interval.modrinth_refresh)
-        modrinth_refresh_job = scheduler.add_job(
+        scheduler.add_job(
             refresh_modrinth_with_modify_date,
             trigger=modrinth_refresh_trigger,
             name="modrinth_refresh",
@@ -56,7 +56,7 @@ def main():
     
     if config.job_config.curseforge_refresh_full:
         curseforge_full_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.curseforge_refresh_full) if config.use_cron else IntervalTrigger(seconds=config.interval.curseforge_refresh_full)
-        curseforge_full_refresh_job = scheduler.add_job(
+        scheduler.add_job(
             sync_curseforge_full,
             trigger=curseforge_full_refresh_trigger,
             name="curseforge_full_refresh",
@@ -65,7 +65,7 @@ def main():
 
     if config.job_config.modrinth_refresh_full:
         modrinth_full_refresh_trigger = CronTrigger.from_crontab(config.cron_trigger.modrinth_refresh_full) if config.use_cron else IntervalTrigger(seconds=config.interval.modrinth_refresh_full)
-        modrinth_full_refresh_job = scheduler.add_job(
+        scheduler.add_job(
             refresh_modrinth_full,
             trigger=modrinth_full_refresh_trigger,
             name="modrinth_full_refresh",
@@ -74,7 +74,7 @@ def main():
 
     if config.job_config.sync_curseforge_by_queue:
         curseforge_sync_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_curseforge_by_queue) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_curseforge_by_queue)
-        curseforge_sync_job = scheduler.add_job(
+        scheduler.add_job(
             sync_curseforge_queue,
             trigger=curseforge_sync_trigger,
             name="sync_curseforge_queue",
@@ -83,7 +83,7 @@ def main():
 
     if config.job_config.sync_modrinth_by_queue:
         modrinth_sync_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_modrinth_by_queue) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_modrinth_by_queue)
-        modrinth_sync_job = scheduler.add_job(
+        scheduler.add_job(
             sync_modrinth_queue,
             trigger=modrinth_sync_trigger,
             name="sync_modrinth_queue",
@@ -92,7 +92,7 @@ def main():
 
     if config.job_config.sync_modrinth_by_search:
         sync_modrinth_by_search_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_modrinth_by_search) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_modrinth_by_search)
-        sync_modrinth_by_search_job = scheduler.add_job(
+        scheduler.add_job(
             sync_modrinth_by_search,
             trigger=sync_modrinth_by_search_trigger,
             name="sync_modrinth_by_search",
@@ -101,7 +101,7 @@ def main():
 
     if config.job_config.sync_curseforge_by_search:
         sync_curseforge_by_search_trigger = CronTrigger.from_crontab(config.cron_trigger.sync_curseforge_by_search) if config.use_cron else IntervalTrigger(seconds=config.interval.sync_curseforge_by_search)
-        sync_curseforge_by_search_job = scheduler.add_job(
+        scheduler.add_job(
             sync_curseforge_by_search,
             trigger=sync_curseforge_by_search_trigger,
             name="sync_curseforge_by_search",
@@ -110,7 +110,7 @@ def main():
 
     if config.job_config.curseforge_categories:
         curseforge_categories_trigger = CronTrigger.from_crontab(config.cron_trigger.curseforge_categories) if config.use_cron else IntervalTrigger(seconds=config.interval.curseforge_categories)
-        curseforge_categories_refresh_job = scheduler.add_job(
+        scheduler.add_job(
             refresh_curseforge_categories,
             trigger=curseforge_categories_trigger,
             name="curseforge_categories_refresh",
@@ -119,7 +119,7 @@ def main():
 
     if config.job_config.modrinth_tags:
         modrinth_tags_trigger = CronTrigger.from_crontab(config.cron_trigger.modrinth_tags) if config.use_cron else IntervalTrigger(seconds=config.interval.modrinth_tags)
-        modrinth_refresh_tags_job = scheduler.add_job(
+        scheduler.add_job(
             refresh_modrinth_tags,
             trigger=modrinth_tags_trigger,
             name="modrinth_refresh_tags",
@@ -128,7 +128,7 @@ def main():
 
     if config.telegram_bot and config.job_config.global_statistics:
         statistics_trigger = CronTrigger.from_crontab(config.cron_trigger.global_statistics) if config.use_cron else IntervalTrigger(seconds=config.interval.global_statistics)
-        statistics_job = scheduler.add_job(
+        scheduler.add_job(
             send_statistics_to_telegram,
             trigger=statistics_trigger,
             name="statistics",
