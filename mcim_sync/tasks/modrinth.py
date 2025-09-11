@@ -23,7 +23,10 @@ from mcim_sync.checker.modrinth import (
     check_newest_search_result,
 )
 from mcim_sync.cleaner.modrinth import remove_projects
-from mcim_sync.fetcher.modrinth import fetch_expired_and_removed_modrinth_data, fetch_all_modrinth_data
+from mcim_sync.fetcher.modrinth import (
+    fetch_expired_and_removed_modrinth_data,
+    fetch_all_modrinth_data,
+)
 from mcim_sync.queues.modrinth import clear_modrinth_all_queues
 from mcim_sync.tasks import create_tasks_pool
 
@@ -52,20 +55,20 @@ def refresh_modrinth_with_modify_date() -> bool:
 
     # 刷新过期的 modrinth 数据
     log.info("Start syncing Modrinth expired data...")
-    modrinth_pool, modrinth_futures = create_tasks_pool(
+    with create_tasks_pool(
         sync_project,  # 需要 ProjectDetail 返回值
         modrinth_expired_data,
         MAX_WORKERS,
         "refresh_modrinth",
-    )
-
-    projects_detail_info = []
-    for future in as_completed(modrinth_futures):
-        result = future.result()
-        if result:
-            projects_detail_info.append(result)
-    else:
-        modrinth_pool.shutdown()
+    ) as modrinth_futures:
+        log.info(
+            f"All {len(modrinth_futures)} tasks submitted, waiting for completion..."
+        )
+        projects_detail_info = []
+        for future in as_completed(modrinth_futures):
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
 
     if config.telegram_bot:
         notification = RefreshNotification(
@@ -85,13 +88,19 @@ def fetch_modrinth_not_found_ids_from_queue():
     project_ids = []
     avaliable_project_ids = check_modrinth_project_ids_available()
     project_ids.extend(avaliable_project_ids)
-    log.info(f"Modrinth project ids queue available project_ids: {len(avaliable_project_ids)}")
+    log.info(
+        f"Modrinth project ids queue available project_ids: {len(avaliable_project_ids)}"
+    )
     avaliable_project_ids = check_modrinth_version_ids_available()
     project_ids.extend(avaliable_project_ids)
-    log.info(f"Modrinth version ids queue available project_ids: {len(avaliable_project_ids)}")
+    log.info(
+        f"Modrinth version ids queue available project_ids: {len(avaliable_project_ids)}"
+    )
     avaliable_project_ids = check_modrinth_hashes_available()
     project_ids.extend(avaliable_project_ids)
-    log.info(f"Modrinth hashes queue available project_ids: {len(avaliable_project_ids)}")
+    log.info(
+        f"Modrinth hashes queue available project_ids: {len(avaliable_project_ids)}"
+    )
     return project_ids
 
 
@@ -107,22 +116,22 @@ def sync_modrinth_queue() -> bool:
     log.info(f"New project ids: {new_project_ids}, count: {len(new_project_ids)}")
 
     if new_project_ids:
-        pool, futures = create_tasks_pool(
-            # sync_project, project_ids, MAX_WORKERS, "modrinth"
-            sync_project,
-            new_project_ids,
-            MAX_WORKERS,
-            "sync_modrinth_by_queue",  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
-        )
+        with (
+            create_tasks_pool(
+                # sync_project, project_ids, MAX_WORKERS, "modrinth"
+                sync_project,
+                new_project_ids,
+                MAX_WORKERS,
+                "sync_modrinth_by_queue",  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
+            ) as futures
+        ):
+            projects_detail_info = []
 
-        projects_detail_info = []
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    projects_detail_info.append(result)
 
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                projects_detail_info.append(result)
-
-        pool.shutdown()
         log.info(f"Modrinth queue sync finished, total: {len(project_ids)}")
 
         # clear queue
@@ -150,20 +159,18 @@ def sync_modrinth_by_search():
     new_project_ids = check_newest_search_result()
     log.info(f"Modrinth project ids fetched: {len(new_project_ids)}")
     if new_project_ids:
-        pool, futures = create_tasks_pool(
+        with create_tasks_pool(
             sync_project,
             new_project_ids,
             MAX_WORKERS,
             "sync_modrinth_by_search",
-        )
+        ) as futures:
+            projects_detail_info = []
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    projects_detail_info.append(result)
 
-        projects_detail_info = []
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                projects_detail_info.append(result)
-
-        pool.shutdown()
         log.info(
             f"Modrinth sync new project by search finished, total: {len(new_project_ids)}"
         )
@@ -200,6 +207,7 @@ def refresh_modrinth_tags():
         log.info("All Message sent to telegram.")
     return True
 
+
 def refresh_modrinth_full():
     """
     刷新 modrinth 所有数据
@@ -209,26 +217,25 @@ def refresh_modrinth_full():
     modrinth_data = fetch_all_modrinth_data()
     log.info(f"Modrinth data totally fetched: {len(modrinth_data)}")
 
-    modrinth_pool, modrinth_futures = create_tasks_pool(
+    with create_tasks_pool(
         sync_project, modrinth_data, MAX_WORKERS, "modrinth_refresh_full"
-    )
+    ) as modrinth_futures:
+        log.info(
+            f"All {len(modrinth_futures)} tasks submitted, waiting for completion..."
+        )
 
-    log.info(
-        f"All {len(modrinth_futures)} tasks submitted, waiting for completion..."
-    )
-
-    projects_detail_info = []
-    for future in as_completed(modrinth_futures):
-        result = future.result()
-        if result:
-            projects_detail_info.append(result)
-    else:
-        modrinth_pool.shutdown()
+        projects_detail_info = []
+        for future in as_completed(modrinth_futures):
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
 
     success_project_ids = [project.id for project in projects_detail_info if project]
-    
+
     failed_count = len(modrinth_data) - len(success_project_ids)
-    failed_project_ids = [project.id for project in modrinth_data if project.id not in success_project_ids]
+    failed_project_ids = [
+        project.id for project in modrinth_data if project.id not in success_project_ids
+    ]
 
     log.info(
         f"Modrinth full sync finished, total: {len(modrinth_data)}, "
@@ -244,5 +251,5 @@ def refresh_modrinth_full():
         )
         notice.send_to_telegram()
         log.info("Modrinth full refresh message sent to telegram.")
-    
+
     return True

@@ -45,27 +45,23 @@ def refresh_curseforge_with_modify_date() -> bool:
     log.info(f"Curseforge expired data fetched: {len(curseforge_expired_modids)}")
     log.info("Start syncing CurseForge expired data...")
 
-    curseforge_pool, curseforge_futures = create_tasks_pool(
-        sync_mod,  # 需要 ProjectDetail 返回值
+    with create_tasks_pool(
+        sync_mod,
         curseforge_expired_modids,
         MAX_WORKERS,
         "refresh_curseforge",
-    )
-    projects_detail_info: List[ProjectDetail] = []
-    for future in as_completed(curseforge_futures):
-        result = future.result()
-        if result:
-            projects_detail_info.append(result)
-    else:
-        curseforge_pool.shutdown()
+    ) as curseforge_futures:
+        projects_detail_info: List[ProjectDetail] = []
+        for future in as_completed(curseforge_futures):
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
 
     success_modids = [project.id for project in projects_detail_info if project]
-    
+
     failed_count = len(curseforge_expired_modids) - len(success_modids)
     failed_modids = [
-        modid
-        for modid in curseforge_expired_modids
-        if modid not in success_modids
+        modid for modid in curseforge_expired_modids if modid not in success_modids
     ]
 
     log.info(
@@ -112,18 +108,15 @@ def sync_curseforge_queue() -> bool:
     log.info(f"New modids: {new_modids}, count: {len(new_modids)}")
 
     if new_modids:
-        # pool, futures = create_tasks_pool(sync_mod, modids, MAX_WORKERS, "curseforge")
-        pool, futures = create_tasks_pool(
+        with create_tasks_pool(
             sync_mod, new_modids, MAX_WORKERS, "sync_curseforge_queue"
-        )  # https://github.com/mcmod-info-mirror/mcim-sync/issues/2
+        ) as futures:
+            projects_detail_info = []
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    projects_detail_info.append(result)
 
-        projects_detail_info = []
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                projects_detail_info.append(result)
-
-        pool.shutdown()
         log.info(f"CurseForge queue sync finished, total: {len(modids)}")
 
         # clear queue
@@ -199,17 +192,15 @@ def sync_curseforge_by_search(class_ids: Optional[List[int]] = None) -> bool:
 
     log.info(f"CurseForge new modids fetched: {len(new_modids)}")
     if new_modids:
-        pool, futures = create_tasks_pool(
+        with create_tasks_pool(
             sync_mod, new_modids, MAX_WORKERS, "sync_curseforge_by_search"
-        )
+        ) as futures:
+            projects_detail_info = []
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    projects_detail_info.append(result)
 
-        projects_detail_info = []
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                projects_detail_info.append(result)
-
-        pool.shutdown()
         log.info(f"CurseForge search sync finished, total: {len(new_modids)}")
 
         if config.telegram_bot:
@@ -231,28 +222,23 @@ def sync_curseforge_full():
     curseforge_data = fetch_all_curseforge_data()
     log.info(f"Curseforge data totally fetched: {len(curseforge_data)}")
 
-    curseforge_pool, curseforge_futures = create_tasks_pool(
+    with create_tasks_pool(
         sync_mod, curseforge_data, MAX_WORKERS, "curseforge_refresh_full"
-    )
+    ) as curseforge_futures:
+        log.info(
+            f"All {len(curseforge_futures)} tasks submitted, waiting for completion..."
+        )
 
-    log.info(
-        f"All {len(curseforge_futures)} tasks submitted, waiting for completion..."
-    )
-
-    projects_detail_info: List[ProjectDetail] = []
-    for future in as_completed(curseforge_futures):
-        result = future.result()
-        if result:
-            projects_detail_info.append(result)
-    else:
-        curseforge_pool.shutdown()
+        projects_detail_info: List[ProjectDetail] = []
+        for future in as_completed(curseforge_futures):
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
 
     success_modids = [project.id for project in projects_detail_info if project]
 
     failed_count = len(curseforge_data) - len(success_modids)
-    failed_modids = [
-        modid for modid in curseforge_data if modid not in success_modids
-    ]
+    failed_modids = [modid for modid in curseforge_data if modid not in success_modids]
 
     log.info(
         f"CurseForge full sync finished, total: {len(curseforge_data)}, "
@@ -268,5 +254,5 @@ def sync_curseforge_full():
         )
         notification.send_to_telegram()
         log.info("CurseForge refresh message sent to telegram.")
-    
+
     return True
