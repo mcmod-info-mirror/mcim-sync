@@ -91,7 +91,7 @@ def make_spoiler_block_with_budget(
     used = 0
     for line in lines:
         # 逐行转义并加入前缀
-        escaped_line = f"{prefix}{escape_markdown(line, version=2)}"
+        escaped_line = f"{prefix}{escape_markdown(line)}"
         # 如果不是第一行，需要额外的换行符
         increment = len(escaped_line) + (1 if assembled_lines else 0)
         if used + increment > budget:
