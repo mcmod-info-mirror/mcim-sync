@@ -148,8 +148,12 @@ class RefreshNotification(Notification):
         )
         if self.projects_detail_info:
             sync_message += escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
+            project_strings = [
+                f"{project.name}({project.id}): {project.version_count}" 
+                for project in self.projects_detail_info
+            ]
             sync_message += make_spoiler_block_with_budget(
-                self.projects_detail_info,
+                project_strings,
                 budget=TELEGRAM_MAX_CHARS - len(sync_message) - len(tag_message),
             )
         sync_message += tag_message
@@ -190,8 +194,12 @@ class QueueSyncNotification(Notification):
         )
         if self.projects_detail_info:
             message += escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
+            project_strings = [
+                f"{project.name}({project.id}): {project.version_count}" 
+                for project in self.projects_detail_info
+            ]
             message += make_spoiler_block_with_budget(
-                self.projects_detail_info,
+                project_strings,
                 budget=TELEGRAM_MAX_CHARS - len(message) - len(tag_message),
             )
         message += tag_message
@@ -231,7 +239,14 @@ class SearchSyncNotification(Notification):
         )
         if self.projects_detail_info:
             message += escape_markdown("\n以下格式为 模组名(模组ID): 版本数量\n")
-            message += make_spoiler_block_with_budget(self.projects_detail_info, budget=TELEGRAM_MAX_CHARS - len(message) - len(tag_message))
+            project_strings = [
+                f"{project.name}({project.id}): {project.version_count}" 
+                for project in self.projects_detail_info
+            ]
+            message += make_spoiler_block_with_budget(
+                project_strings,
+                budget=TELEGRAM_MAX_CHARS - len(message) - len(tag_message),
+            )
         message += tag_message
         message_id = send_message_sync(
             message, parse_mode="MarkdownV2", chat_id=config.chat_id
