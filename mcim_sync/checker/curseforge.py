@@ -122,7 +122,7 @@ def check_new_modids(modids: List[int]) -> List[int]:
 
 
 
-def check_newest_search_result(classId: int) -> List[int]:
+def check_newest_search_result(gameId: int, classId: int) -> List[int]:
     """
     遍历搜索返回值直到出现第一个已缓存的 modid，然后返回所有捕捉到的新 modid
     """
@@ -132,7 +132,7 @@ def check_newest_search_result(classId: int) -> List[int]:
 
     while index + page_size <= 10000:
         res = fetch_search_result(
-            gameId=432, classId=classId, index=index, pageSize=page_size,
+            gameId=gameId, classId=classId, index=index, pageSize=page_size,
             sortField=ModsSearchSortField.ReleasedDate,
             sortOrder=ModsSearchSortOrder.DESC,
         )

@@ -10,7 +10,8 @@ from mcim_sync.utils.telegram import (
     CategoriesNotification,
 )
 from mcim_sync.config import Config
-from mcim_sync.utils.constants import ProjectDetail
+from mcim_sync.models import ProjectDetail
+from mcim_sync.utils.constants import GAME_432_CLASSES_INFO
 from mcim_sync.sync.curseforge import sync_mod, sync_categories
 from mcim_sync.checker.curseforge import (
     check_curseforge_modids_available,
@@ -137,9 +138,9 @@ def sync_curseforge_queue() -> bool:
     return True
 
 
-def refresh_curseforge_categories() -> bool:
-    log.info("Start fetching curseforge categories.")
-    result = sync_categories(gameId=432)
+def refresh_curseforge_categories(gameId: int = 432) -> bool:
+    log.info(f"Start fetching curseforge categories. (gameId: {gameId})")
+    result = sync_categories(gameId=gameId)
     total_catached_count = len(result)
     log.info(
         f"CurseForge categories sync finished, total categories: {total_catached_count}"
@@ -154,35 +155,22 @@ def refresh_curseforge_categories() -> bool:
     return True
 
 
-def sync_curseforge_by_search(class_ids: Optional[List[int]] = None) -> bool:
+def sync_curseforge_by_search(gameId: int = 432, classes_info: Optional[List[dict]] = GAME_432_CLASSES_INFO) -> bool:
     """
     从搜索接口拉取 curseforge 的新 Mod
 
     ?gameId=432&classId=6&sortField=11&sortOrder=desc
     """
-    log.info("Start fetching new curseforge mod by search.")
-
-    # /v1/categories?gameId=432&classOnly=true
-    # 排除 Bukkit Plugins
-    class_info = [
-        {"id": 4546, "name": "Customization"},
-        {"id": 4559, "name": "Addons"},
-        {"id": 12, "name": "Resource Packs"},
-        {"id": 6, "name": "Mods"},
-        {"id": 4471, "name": "Modpacks"},
-        {"id": 17, "name": "Worlds"},
-        {"id": 6552, "name": "Shaders"},
-        {"id": 6945, "name": "Data Packs"},
-    ]
-    classIds = [cls["id"] for cls in class_info] if class_ids is None else class_ids
+    log.info(f"Start fetching new curseforge mod by search. (gameId: {gameId})")
     new_modids = []
 
-    for classId in classIds:
-        class_name = class_info[classIds.index(classId)]["name"]
+    for class_info in classes_info:
+        classId = class_info["id"]
+        class_name = class_info["name"]
         log.info(
             f"Fetching new curseforge mod by search, classId: {classId}, name: {class_name}"
         )
-        result = check_newest_search_result(classId=classId)
+        result = check_newest_search_result(gameId=gameId, classId=classId)
         new_modids.extend(result)
         log.info(
             f"New modids fetched for classId {classId} name {class_name}: {len(result)}"

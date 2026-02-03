@@ -1,6 +1,6 @@
 
 from mcim_sync.sync.curseforge import sync_mod, sync_categories
-from mcim_sync.utils.constants import ProjectDetail
+from mcim_sync.models import ProjectDetail
 
 
 modId = 1052133

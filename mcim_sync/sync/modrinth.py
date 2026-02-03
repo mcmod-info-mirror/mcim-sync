@@ -26,7 +26,7 @@ from mcim_sync.apis.modrinth import (
     get_multi_versions_info,
     get_search_result,
 )
-from mcim_sync.utils.constants import ProjectDetail
+from mcim_sync.models import ProjectDetail
 from mcim_sync.exceptions import ResponseCodeException
 from mcim_sync.config import Config
 from mcim_sync.database.mongodb import sync_mongo_engine

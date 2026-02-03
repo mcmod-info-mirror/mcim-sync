@@ -4,7 +4,7 @@ from mcim_sync.sync.modrinth import (
     sync_loaders,
     sync_game_versions,
 )
-from mcim_sync.utils.constants import ProjectDetail
+from mcim_sync.models import ProjectDetail
 
 project_id = "OpqpD8K2"
 

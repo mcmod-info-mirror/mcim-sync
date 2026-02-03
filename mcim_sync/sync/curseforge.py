@@ -21,7 +21,7 @@ from mcim_sync.apis.curseforge import (
     get_search_result,
 )
 
-from mcim_sync.utils.constants import ProjectDetail
+from mcim_sync.models import ProjectDetail
 from mcim_sync.utils.loger import log
 from mcim_sync.utils.model_submitter import ModelSubmitter
 
@@ -29,6 +29,7 @@ from mcim_sync.utils.model_submitter import ModelSubmitter
 from mcim_sync.database.mongodb import sync_mongo_engine, raw_mongo_client
 from mcim_sync.config import Config
 from mcim_sync.exceptions import ResponseCodeException
+from mcim_sync.utils.constants import ACCEPT_GAMEIDS
 
 config = Config.load()
 
@@ -148,7 +149,7 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
         with ModelSubmitter() as submitter:
             res = get_mod(modId)
             mod_model = Mod(**res)
-            if mod_model.gameId == 432:
+            if mod_model.gameId in ACCEPT_GAMEIDS:
                 # version_count = sync_mod_all_files(
                 #     modId,
                 #     # latestFiles=res["latestFiles"],
@@ -172,17 +173,21 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
                         id=modId,
                         translated=None,
                         original=mod_model.summary,
-                        need_to_update=True
+                        need_to_update=True,
                     )
                     log.debug(f"Mod {modId} summary not found, adding new translation")
                     submitter.add(translated_mod)
                 elif translated_mod.original != mod_model.summary:
                     translated_mod.original = mod_model.summary
                     translated_mod.need_to_update = True
-                    log.debug(f"Mod {modId} summary changed, marking translation for update")
+                    log.debug(
+                        f"Mod {modId} summary changed, marking translation for update"
+                    )
                     submitter.add(translated_mod)
                 else:
-                    log.trace(f"Mod {modId} summary not changed, no need to update translation")
+                    log.trace(
+                        f"Mod {modId} summary not changed, no need to update translation"
+                    )
 
                 # 最后再添加，以防未成功刷新版本列表而更新 Mod 信息
                 submitter.add(mod_model)
@@ -193,7 +198,7 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
                     version_count=version_count,
                 )
             else:
-                log.debug(f"Mod {modId} gameId is not 432")
+                log.debug(f"Mod {modId} gameId is not in {ACCEPT_GAMEIDS}, skipping")
 
     except ResponseCodeException as e:
         if e.status_code == 404:

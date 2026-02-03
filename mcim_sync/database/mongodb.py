@@ -9,7 +9,7 @@ _mongodb_config = Config.load().mongodb
 def ping_mongodb_client(client: MongoClient) -> bool:
     try:
         client.admin.command('ping')
-        print("Successfully connected to MongoDB")
+        # print("Successfully connected to MongoDB")
         return True
     except Exception as e:
         print(f"An error occurred: {e}, failed to connect to MongoDB")

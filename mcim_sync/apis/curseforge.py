@@ -42,7 +42,7 @@ def get_mutil_files(fileIds: List[int]):
 def get_mutil_fingerprints(fingerprints: List[int]):
     res = request(
         method="POST",
-        url=f"{API}/v1/fingerprints/432",
+        url=f"{API}/v1/fingerprints",
         headers=HEADERS,
         json={"fingerprints": fingerprints},
     ).json()
