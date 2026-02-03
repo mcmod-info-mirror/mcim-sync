@@ -242,14 +242,14 @@ def fetch_mutil_fingerprints(fingerprints: List[int]):
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_categories(
-    gameId: int = 432, classId: Optional[int] = None, classOnly: Optional[bool] = None
+    gameId: int = 432, classId: Optional[int] = None, classesOnly: Optional[bool] = None
 ) -> Optional[List[dict]]:
     try:
         with ModelSubmitter() as submitter:
             if classId is not None:
                 res = get_categories(gameId, classId=classId)
-            elif classOnly:
-                res = get_categories(gameId, classOnly=classOnly)
+            elif classesOnly:
+                res = get_categories(gameId, classesOnly=classesOnly)
             else:
                 res = get_categories(gameId)
             for category in res:

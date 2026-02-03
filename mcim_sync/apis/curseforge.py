@@ -50,13 +50,13 @@ def get_mutil_fingerprints(fingerprints: List[int]):
 
 
 def get_categories(
-    gameId: int = 432, classId: Optional[int] = None, classOnly: Optional[bool] = None
+    gameId: int = 432, classId: Optional[int] = None, classesOnly: Optional[bool] = None
 ) -> List[dict]:
     params = {"gameId": gameId}
     if classId is not None:
         params["classId"] = classId
-    elif classOnly:
-        params["classOnly"] = classOnly
+    elif classesOnly:
+        params["classesOnly"] = classesOnly
     res = request(f"{API}/v1/categories", params=params, headers=HEADERS).json()
     return res["data"]
 
