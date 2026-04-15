@@ -50,53 +50,53 @@ def check_modrinth_data_updated_and_alive(
     if remote_projects is None:
         return set(), set()
 
-    with ModelSubmitter() as submitter:
-        for remote in remote_projects:
-            project_id = remote["id"]
-            alive_ids.add(project_id)
+    # with ModelSubmitter() as submitter:
+    for remote in remote_projects:
+        project_id = remote["id"]
+        alive_ids.add(project_id)
 
-            local = local_project_info[project_id]
+        local = local_project_info[project_id]
 
-            local_updated = local["updated"]
-            remote_updated = datetime.datetime.fromisoformat(remote["updated"]).replace(
-                tzinfo=None
-            )
+        local_updated = local["updated"]
+        remote_updated = datetime.datetime.fromisoformat(remote["updated"]).replace(
+            tzinfo=None
+        )
 
-            local_versions = local["versions"]
-            remote_versions = remote["versions"]
+        local_versions = local["versions"]
+        remote_versions = remote["versions"]
 
-            local_game_versions = local["game_versions"]
-            remote_game_versions = remote["game_versions"]
+        local_game_versions = local["game_versions"]
+        remote_game_versions = remote["game_versions"]
 
-            if _is_project_updated(
-                local_updated, remote_updated
-            ):  # Check if project is updated
-                outdated_ids.add(project_id)
-                log.debug(f"[{project_id}] Updated: {local_updated} → {remote_updated}")
-            elif _has_versions_changed(
-                local_versions, remote_versions
-            ):  # Check if versions have changed
-                outdated_ids.add(project_id)
-                diff_versions = set(remote_versions) ^ set(local_versions)
-                if diff_versions:
-                    log.debug(
-                        f"[{project_id}] Version {diff_versions} mismatch, needs sync."
-                    )
-            elif _has_game_versions_changed(
-                local_game_versions, remote_game_versions
-            ):  # Check if game versions have changed
-                outdated_ids.add(project_id)
-                diff_game_versions = set(remote_game_versions) ^ set(
-                    local_game_versions
+        if _is_project_updated(
+            local_updated, remote_updated
+        ):  # Check if project is updated
+            outdated_ids.add(project_id)
+            log.debug(f"[{project_id}] Updated: {local_updated} → {remote_updated}")
+        elif _has_versions_changed(
+            local_versions, remote_versions
+        ):  # Check if versions have changed
+            outdated_ids.add(project_id)
+            diff_versions = set(remote_versions) ^ set(local_versions)
+            if diff_versions:
+                log.debug(
+                    f"[{project_id}] Version {diff_versions} mismatch, needs sync."
                 )
-                if diff_game_versions:
-                    log.debug(
-                        f"[{project_id}] Game versions {diff_game_versions} changed, needs sync."
-                    )
-            else:
-                log.trace(f"[{project_id}] No change, skipping.")
+        elif _has_game_versions_changed(
+            local_game_versions, remote_game_versions
+        ):  # Check if game versions have changed
+            outdated_ids.add(project_id)
+            diff_game_versions = set(remote_game_versions) ^ set(
+                local_game_versions
+            )
+            if diff_game_versions:
+                log.debug(
+                    f"[{project_id}] Game versions {diff_game_versions} changed, needs sync."
+                )
+        else:
+            log.trace(f"[{project_id}] No change, skipping.")
 
-            submitter.add(Project(**remote))
+            # submitter.add(Project(**remote))
 
     dead_ids = set(all_project_ids) - alive_ids
 

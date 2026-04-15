@@ -34,24 +34,24 @@ def check_curseforge_data_updated(mods: List[Mod]) -> Set[int]:
     expired_modids: Set[int] = set()
     mods_info = fetch_mutil_mods_info(modIds=[mod.id for mod in mods])
     if mods_info is not None:
-        with ModelSubmitter() as submitter:
-            for mod in mods_info:
-                submitter.add(Mod(**mod))
-                modid = mod["id"]
-                mod_date[modid]["source_date"] = mod["dateModified"]
-                sync_date: datetime.datetime = mod_date[modid]["sync_date"].replace( # type: ignore
-                    tzinfo=None
+        # with ModelSubmitter() as submitter:
+        for mod in mods_info:
+            # submitter.add(Mod(**mod))
+            modid = mod["id"]
+            mod_date[modid]["source_date"] = mod["dateModified"]
+            sync_date: datetime.datetime = mod_date[modid]["sync_date"].replace( # type: ignore
+                tzinfo=None
+            )
+            dateModified_date = datetime.datetime.fromisoformat(
+                mod["dateModified"]
+            ).replace(tzinfo=None)
+            if int(sync_date.timestamp()) == int(dateModified_date.timestamp()):
+                log.trace(f"Mod {modid} is not updated, pass!")
+            else:
+                expired_modids.add(modid)
+                log.debug(
+                    f"Mod {modid} is updated {sync_date.isoformat(timespec='seconds')} -> {dateModified_date.isoformat(timespec='seconds')}!"
                 )
-                dateModified_date = datetime.datetime.fromisoformat(
-                    mod["dateModified"]
-                ).replace(tzinfo=None)
-                if int(sync_date.timestamp()) == int(dateModified_date.timestamp()):
-                    log.trace(f"Mod {modid} is not updated, pass!")
-                else:
-                    expired_modids.add(modid)
-                    log.debug(
-                        f"Mod {modid} is updated {sync_date.isoformat(timespec='seconds')} -> {dateModified_date.isoformat(timespec='seconds')}!"
-                    )
 
     return expired_modids
 
