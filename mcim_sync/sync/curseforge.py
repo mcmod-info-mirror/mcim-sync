@@ -203,6 +203,7 @@ def sync_mod(modId: int) -> Optional[ProjectDetail]:
     except ResponseCodeException as e:
         if e.status_code == 404:
             log.error(f"Mod {modId} not found!")
+            return False
         else:
             raise e
 

@@ -24,7 +24,7 @@ from mcim_sync.fetcher.curseforge import (
     fetch_expired_curseforge_data,
     fetch_all_curseforge_data,
 )
-from mcim_sync.queues.curseforge import clear_curseforge_all_queues
+from mcim_sync.queues.curseforge import clear_curseforge_all_queues, add_curseforge_modids_queue
 from mcim_sync.tasks import create_tasks_pool
 
 config = Config.load()
@@ -108,32 +108,42 @@ def sync_curseforge_queue() -> bool:
     new_modids = check_new_modids(modids=modids)
     log.info(f"New modids: {new_modids}, count: {len(new_modids)}")
 
-    if new_modids:
-        with create_tasks_pool(
-            sync_mod, new_modids, MAX_WORKERS, "sync_curseforge_queue"
-        ) as futures:
-            projects_detail_info = []
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    projects_detail_info.append(result)
+    # https://github.com/Meloong-Git/PCL/issues/8008 有 Mod 存在更新了 Mod 信息但是实际上漏文件了，但是漏文件不算入 check_new_modids，先抛弃 check_new_modids
+    # if new_modids:
+    failed_modids = set()
+    with create_tasks_pool(
+        # sync_mod, new_modids, MAX_WORKERS, "sync_curseforge_queue"
+        sync_mod, modids, MAX_WORKERS, "sync_curseforge_queue"
+    ) as futures:
+        projects_detail_info = []
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                projects_detail_info.append(result)
+            elif result == False:
+                # 只有当 sync_mod 返回 False 的时候才认为是 modid 不存在，其他情况都认为是同步失败
+                failed_modids.add(result)
 
-        log.info(f"CurseForge queue sync finished, total: {len(modids)}")
+    log.info(f"CurseForge queue sync finished, total: {len(modids)}")
 
-        # clear queue
-        clear_curseforge_all_queues()
-        log.info("CurseForge queue cleared.")
+    # clear queue
+    clear_curseforge_all_queues()
+    log.info("CurseForge queue cleared, leaving failed modids in queue for next sync.")
 
-        if config.telegram_bot:
-            notice = QueueSyncNotification(
-                platform=Platform.CURSEFORGE,
-                projects_detail_info=projects_detail_info,
-                total_catached_count=len(modids),
-            )
+    # add failed modids back to queue
+    add_curseforge_modids_queue(list(failed_modids))
+    log.info(f"Failed modids added back to queue: {failed_modids}")
 
-            notice.send_to_telegram()
+    if config.telegram_bot:
+        notice = QueueSyncNotification(
+            platform=Platform.CURSEFORGE,
+            projects_detail_info=projects_detail_info,
+            total_catached_count=len(modids),
+        )
 
-            log.info("All Message sent to telegram.")
+        notice.send_to_telegram()
+
+        log.info("All Message sent to telegram.")
 
     return True
 

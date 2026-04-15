@@ -45,3 +45,7 @@ def clear_curseforge_all_queues():
     clear_curseforge_modids_queue()
     clear_curseforge_fileids_queue()
     clear_curseforge_fingerprints_queue()
+
+def add_curseforge_modids_queue(modids: List[int]):
+    if modids:
+        sync_redis_engine.sadd("curseforge_modids", *modids)
