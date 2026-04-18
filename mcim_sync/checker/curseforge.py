@@ -5,7 +5,7 @@ import time
 from mcim_sync.database.mongodb import raw_mongo_client
 from mcim_sync.utils.loger import log
 from mcim_sync.config import Config
-from mcim_sync.models.database.curseforge import Mod
+from mcim_sync.models.database.curseforge import Mod, File
 from mcim_sync.sync.curseforge import (
     fetch_mutil_mods_info,
     fetch_mutil_files,
@@ -88,6 +88,15 @@ def check_curseforge_fileids_available():
         info = fetch_mutil_files(fileIds=chunk)
         if info is not None:
             available_modids.extend([file["modId"] for file in info])
+
+            # https://github.com/Meloong-Git/PCL/issues/8008#issuecomment-4252789454
+            # 特判：如果文件不可见，那么强行在此插入数据库，以及后续 sync_mod 应该不删除该文件
+            with ModelSubmitter() as submitter:
+                for file in info:
+                    if not file["isAvailable"]:
+                        submitter.add(File(**file))
+                        log.debug(f"FileId {file['id']} modId {file['modId']} is not available! Specially inserted into database.")
+
     return list(set(available_modids))
 
 

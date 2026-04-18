@@ -76,8 +76,16 @@ def sync_mod_all_files(modId: int) -> int:
 
         params["index"] = page.index + page.pageSize
 
+    # removed_file_count = sync_mongo_engine.remove(
+    #     File, File.modId == modId, query.not_in(File.id, file_id_list)
+    # )
+
+    # https://github.com/Meloong-Git/PCL/issues/8008#issuecomment-4252789454
+    # 特判：如果文件在文件列表中不可见而实际存在可直接按 FileId 查询，那么不删除该文件
+    # 但应该在删除整个无效 Mod 的时候删除所有文件，包括该文件
+
     removed_file_count = sync_mongo_engine.remove(
-        File, File.modId == modId, query.not_in(File.id, file_id_list)
+        File, File.modId == modId, File.isAvailable == True, query.not_in(File.id, file_id_list)  # noqa: E712
     )
 
     # removed_fingerprint_count = sync_mongo_engine.remove(
@@ -124,8 +132,16 @@ def sync_mod_all_files_at_once(modId: int) -> Optional[int]:
 
     append_model_from_files_res(res)
 
+    # removed_file_count = sync_mongo_engine.remove(
+    #     File, File.modId == modId, query.not_in(File.id, file_id_list)
+    # )
+
+    # https://github.com/Meloong-Git/PCL/issues/8008#issuecomment-4252789454
+    # 特判：如果文件在文件列表中不可见而实际存在可直接按 FileId 查询，那么不删除该文件
+    # 但应该在删除整个无效 Mod 的时候删除所有文件，包括该文件
+
     removed_file_count = sync_mongo_engine.remove(
-        File, File.modId == modId, query.not_in(File.id, file_id_list)
+        File, File.modId == modId, File.isAvailable == True, query.not_in(File.id, file_id_list)  # noqa: E712
     )
 
     # removed_fingerprint_count = sync_mongo_engine.remove(
