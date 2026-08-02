@@ -123,9 +123,9 @@ def sync_project(project_id: str) -> Optional[ProjectDetail]:
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_categories() -> List[dict]:
+    categories = get_categories()
     sync_mongo_engine.remove(Category)
     with ModelSubmitter() as submitter:
-        categories = get_categories()
         for category in categories:
             submitter.add(Category(**category))
     return categories
@@ -133,9 +133,9 @@ def sync_categories() -> List[dict]:
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_loaders() -> List[dict]:
+    loaders = get_loaders()
     sync_mongo_engine.remove(Loader)
     with ModelSubmitter() as submitter:
-        loaders = get_loaders()
         for loader in loaders:
             submitter.add(Loader(**loader))
     return loaders
@@ -143,9 +143,9 @@ def sync_loaders() -> List[dict]:
 
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
 def sync_game_versions() -> List[dict]:
+    game_versions = get_game_versions()
     sync_mongo_engine.remove(GameVersion)
     with ModelSubmitter() as submitter:
-        game_versions = get_game_versions()
         for game_version in game_versions:
             submitter.add(GameVersion(**game_version))
     return game_versions
